@@ -1,0 +1,10 @@
+# Secretos: NUNCA subir
+app/config.php
+.env
+*.key
+
+# Caché y datos en tiempo de ejecución
+storage/cache/*
+!storage/cache/.gitkeep
+*.log
+.DS_Store

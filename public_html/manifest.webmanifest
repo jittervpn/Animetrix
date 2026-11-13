@@ -1,0 +1,10 @@
+{
+  "name": "Animetrix",
+  "short_name": "Animetrix",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07080c",
+  "theme_color": "#07080c",
+  "lang": "es",
+  "icons": [{ "src": "/assets/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
