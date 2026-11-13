@@ -65,7 +65,7 @@
   async function api(action, params) {
     const qs = new URLSearchParams({ a: action, ...params }).toString();
     if (memo.has(qs)) return memo.get(qs);
-    const p = fetch('/api.php?' + qs, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+    const p = fetch('/api/data?' + qs, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(async (r) => {
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
@@ -79,7 +79,7 @@
   const watchUrl = (it, se, ep) => {
     const q = new URLSearchParams({ t: it.type, id: it.tmdb });
     if (it.type !== 'movie') { q.set('se', se ?? 1); q.set('ep', ep ?? 1); }
-    return '/ver.php?' + q;
+    return '/ver?' + q;
   };
 
   /* ---------- componentes ---------- */
@@ -260,7 +260,7 @@
 
   function seasonsBlock(d, resume) {
     if (!d.seasons?.length) {
-      return h('form', { class: 'ep-picker', method: 'get', action: '/ver.php' },
+      return h('form', { class: 'ep-picker', method: 'get', action: '/ver' },
         h('input', { type: 'hidden', name: 't', value: d.type }), h('input', { type: 'hidden', name: 'id', value: d.tmdb }),
         h('label', {}, 'Temporada ', h('input', { type: 'number', name: 'se', min: 0, max: 500, value: resume?.se || 1 })),
         h('label', {}, 'Episodio ', h('input', { type: 'number', name: 'ep', min: 0, max: 100000, value: resume?.ep || 1 })),

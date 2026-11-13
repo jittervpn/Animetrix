@@ -1,0 +1,41 @@
+// Proxy público: /api/data?a=catalog&type=movie&page=1&q=...
+//                /api/data?a=title&type=serie&tmdb=123
+// El navegador nunca ve la API key: esta función la añade del lado del servidor.
+import { asType, asInt, catalog, title, ApiError } from '../lib/inkaflix.js';
+import { securityHeaders, rateLimited, sendJson } from '../lib/http.js';
+
+export default async function handler(req, res) {
+  securityHeaders(res, false);
+  if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return sendJson(res, 405, { error: 'Método no permitido' }); }
+
+  const site = req.headers['sec-fetch-site'];
+  if (site && !['same-origin', 'none'].includes(site)) return sendJson(res, 403, { error: 'Origen no permitido' });
+  if (rateLimited(req)) { res.setHeader('Retry-After', '60'); return sendJson(res, 429, { error: 'Demasiadas peticiones, espera un minuto' }); }
+
+  const q = req.query || {};
+  const one = (v) => (Array.isArray(v) ? v[0] : v);
+  const type = asType(one(q.type));
+  if (!type) return sendJson(res, 400, { error: 'Tipo no válido' });
+
+  try {
+    switch (one(q.a)) {
+      case 'catalog': {
+        const page = asInt(one(q.page) ?? '1', 1, 1000) ?? 1;
+        let s = typeof one(q.q) === 'string' ? one(q.q) : '';
+        s = s.replace(/[\x00-\x1F\x7F<>]+/g, '').trim().slice(0, 60);
+        return sendJson(res, 200, await catalog(type, page, s), 600);
+      }
+      case 'title': {
+        const tmdb = asInt(one(q.tmdb), 1, 99999999);
+        if (tmdb == null) return sendJson(res, 400, { error: 'ID no válido' });
+        return sendJson(res, 200, await title(type, tmdb), 1800);
+      }
+      default:
+        return sendJson(res, 400, { error: 'Acción no válida' });
+    }
+  } catch (e) {
+    if (!(e instanceof ApiError)) console.error('[animetrix]', e);
+    const nf = e instanceof ApiError && e.status === 404;
+    return sendJson(res, nf ? 404 : 502, { error: nf ? 'No encontrado' : 'Servicio no disponible, intenta más tarde' });
+  }
+}
