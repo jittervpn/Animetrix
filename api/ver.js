@@ -88,6 +88,6 @@ export default async function handler(req, res) {
 ` + pageEnd();
 
   res.statusCode = 200;
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400');
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=60');
   res.end(html);
 }

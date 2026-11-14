@@ -23,12 +23,12 @@ export default async function handler(req, res) {
         const page = asInt(one(q.page) ?? '1', 1, 1000) ?? 1;
         let s = typeof one(q.q) === 'string' ? one(q.q) : '';
         s = s.replace(/[\x00-\x1F\x7F<>]+/g, '').trim().slice(0, 60);
-        return sendJson(res, 200, await catalog(type, page, s), 600);
+        return sendJson(res, 200, await catalog(type, page, s), 120);
       }
       case 'title': {
         const tmdb = asInt(one(q.tmdb), 1, 99999999);
         if (tmdb == null) return sendJson(res, 400, { error: 'ID no válido' });
-        return sendJson(res, 200, await title(type, tmdb), 1800);
+        return sendJson(res, 200, await title(type, tmdb), 300);
       }
       default:
         return sendJson(res, 400, { error: 'Acción no válida' });
