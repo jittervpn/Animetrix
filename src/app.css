@@ -317,3 +317,74 @@ a.stat:hover { background: #151927; }
 .player-bar.compat .shield { color: #ffd166; }
 .link-btn { border: 0; background: none; padding: 4px 0; cursor: pointer; color: var(--muted); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .link-btn:hover { color: var(--text); }
+
+/* ---------- filtros: botón (solo celular) ---------- */
+.filters-toggle { display: none; height: 40px; }
+.filters-toggle svg { width: 18px; height: 18px; }
+
+/* ---------- celulares ---------- */
+@media (max-width: 640px) {
+  :root { --pad: 14px; }
+  .hero { min-height: min(64vh, 540px); }
+  .hero-content { padding: 84px var(--pad) 26px; }
+  .hero h1 { font-size: clamp(30px, 9vw, 40px); margin-bottom: 10px; }
+  .hero-overview { -webkit-line-clamp: 2; margin-bottom: 18px; font-size: 14px; }
+  .btn.lg { padding: 12px 20px; font-size: 14px; }
+  .actions { gap: 10px; }
+  .stats { margin: 0 var(--pad) 28px; border-radius: 14px; }
+  .stat strong { font-size: 26px; }
+
+  .row { margin: 4px 0 24px; contain-intrinsic-size: auto 260px; }
+  .row-head { margin-bottom: 8px; }
+  .row-track { grid-auto-columns: calc((100vw - var(--pad) * 2 - 20px) / 3.15); gap: 10px; padding-bottom: 8px; }
+  .card-img { border-radius: 10px; }
+  .card-meta { padding-top: 6px; }
+  .card-meta strong { font-size: 12.5px; }
+  .card-meta span { font-size: 11px; }
+  .card-rate { top: 5px; right: 5px; padding: 2px 5px; font-size: 10.5px; border-radius: 6px; }
+  .card-badge { top: 5px; left: 5px; font-size: 10px; padding: 2px 6px; }
+  .card-play { display: none; }
+  .poster-ph span { font-size: 22px; }
+
+  .page { padding: 74px var(--pad) 30px; }
+  .page-title { font-size: 26px; margin-bottom: 12px; }
+  .chips { margin-bottom: 14px; }
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; }
+
+  .filters { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px; margin-bottom: 18px; }
+  .filters .fld.grow { grid-column: auto; }
+  .filters .fld.grow > span { display: none; }
+  .filters-toggle { display: inline-flex; align-self: end; }
+  .filters .fld:not(.grow), .filters .reset { display: none; }
+  .filters.open { grid-template-columns: 1fr 1fr; }
+  .filters.open .fld.grow { grid-column: 1; }
+  .filters.open .filters-toggle { grid-column: 2; }
+  .filters.open .fld:not(.grow) { display: grid; }
+  .filters.open .reset { display: inline-flex; grid-column: 1 / -1; }
+
+  /* reproductor fijo arriba mientras se recorre la lista de episodios */
+  .watch-page { padding-top: 58px; }
+  .watch-page .player-wrap { position: sticky; top: 58px; z-index: 20; box-shadow: 0 8px 20px -8px #000; }
+  .watch-info { padding-top: 16px; }
+  .watch-head { gap: 12px; margin-bottom: 14px; }
+  .watch-head h1 { font-size: 20px; }
+  .back { width: 38px; height: 38px; }
+  .ep-nav .btn { flex: 1; }
+  .ep-list { max-height: none; grid-template-columns: 1fr; }
+  .ep-list a { padding: 9px 10px; }
+  .overview { font-size: 14px; }
+
+  .modal-card { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .m-cover { height: 200px; }
+  .m-info h2 { font-size: 24px; }
+  .m-info .actions .btn { flex: 1; }
+}
+
+/* celular en horizontal: el video ocupa toda la pantalla */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.watch { padding-bottom: 0; }
+  .watch .topbar, .watch .tabbar { display: none; }
+  .watch-page { padding-top: 0; }
+  .watch-page .player-wrap { position: static; }
+  .watch-page .player { width: 100%; height: 100vh; height: 100dvh; aspect-ratio: auto; }
+}

@@ -97,7 +97,7 @@ export default async function handler(req, res) {
     </div>` : ''}
     ${info?.overview ? `<p class="overview">${esc(info.overview)}</p>` : ''}
     ${episodesHtml}
-    <p class="hint">Si al tocar el video se abre una pestaña de anuncio, ciérrala y vuelve aquí: tu video sigue en el mismo lugar.</p>
+    <p class="hint">¿No carga el video? Recarga la página o prueba en unos minutos.</p>
   </section>
 </main>
 ` + pageEnd();

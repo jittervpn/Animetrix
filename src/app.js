@@ -229,6 +229,13 @@
       h('button', { class: 'btn ghost reset', type: 'reset' }, 'Limpiar'),
     ].filter(Boolean));
 
+    const toggle = h('button', { class: 'btn ghost filters-toggle', type: 'button', 'aria-expanded': 'false' });
+    toggle.addEventListener('click', () => { const open = !bar.classList.contains('open'); bar.classList.toggle('open', open); toggle.setAttribute('aria-expanded', String(open)); });
+    bar.querySelector('.fld.grow').after(toggle);
+    const paintToggle = () => {
+      const n = ['y', 'g', 'r'].filter((k) => f[k]).length + (f.o && f.o !== 'new' ? 1 : 0);
+      toggle.replaceChildren(svg('M4 6h16M7 12h10M10 18h4'), n ? 'Filtros (' + n + ')' : 'Filtros');
+    };
     let shown = 0; let list = [];
     const PAGE = 30;
     const paint = (reset) => {
@@ -241,6 +248,7 @@
     const apply = () => {
       const fd = new FormData(bar);
       Object.assign(f, { q: String(fd.get('q') || '').trim(), y: fd.get('y') || '', g: fd.get('g') || '', r: fd.get('r') || '', o: fd.get('o') || 'new' });
+      paintToggle();
       const q = fold(f.q);
       list = items.filter((it) => (!q || fold(it.title).includes(q))
         && (!f.y || String(it.year) === String(f.y))
@@ -415,7 +423,9 @@
     }
     const eps = $('.episodes'); if (eps) bindSeasonTabs(eps);
     initPlayer();
-    $('.ep-list a[aria-current]')?.scrollIntoView({ block: 'nearest' });
+    const cur = $('.ep-list a[aria-current]');
+    const list = cur?.closest('.ep-list');
+    if (cur && list && list.scrollHeight > list.clientHeight) list.scrollTop = cur.offsetTop - list.offsetTop - 8;
     $$('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === w.type));
     return true;
   }
