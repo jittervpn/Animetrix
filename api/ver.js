@@ -41,6 +41,7 @@ export default async function handler(req, res) {
 
   const link = ([s, e]) => '/ver?' + new URLSearchParams({ t: type, id: String(tmdb), se: String(s), ep: String(e) });
   const epLabel = type === 'movie' ? '' : `T${se} · E${ep}`;
+  const link0 = type === 'movie' ? `/ver?t=movie&id=${tmdb}` : link([se, ep]);
   // Protección: SIN allow-top-navigation → ningún anuncio puede sacar al usuario de la página.
   // Con allow-popups → el reproductor puede abrir su anuncio en otra pestaña (muchos lo exigen para soltar el video).
   const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox allow-orientation-lock allow-pointer-lock"' : '';
@@ -71,7 +72,22 @@ export default async function handler(req, res) {
   ].filter(Boolean);
   const meta = metaParts.length ? `<div class="meta watch-meta">${metaParts.join('')}</div>` : '';
 
-  const html = pageStart({ title: `${name} ${epLabel}`.trim(), description: info?.overview || '', bodyClass: 'watch', watch: true }) + `
+  const html = pageStart({
+    title: `Ver ${name}${epLabel ? ' ' + epLabel : ''} online${info?.year ? ' (' + info.year + ')' : ''}`,
+    description: (info?.overview ? info.overview + ' ' : '') + `Mira ${name} online en Animetrix.`,
+    bodyClass: 'watch', watch: true,
+    canonical: 'https://www.animetrix.lat' + link0,
+    image: info?.backdrop || info?.poster || '',
+    jsonld: {
+      '@context': 'https://schema.org',
+      '@type': type === 'movie' ? 'Movie' : 'TVSeries',
+      name, ...(info?.overview ? { description: info.overview } : {}),
+      ...(info?.poster ? { image: info.poster } : {}),
+      ...(info?.year ? { datePublished: String(info.year) } : {}),
+      ...(info?.genres?.length ? { genre: info.genres } : {}),
+      ...(info?.rating && info?.votes ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: info.rating, bestRating: 10, ratingCount: info.votes } } : {}),
+    },
+  }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
   <div class="player-wrap"><div class="player">
     <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"

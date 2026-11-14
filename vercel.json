@@ -16,6 +16,10 @@
     {
       "source": "/ver.php",
       "destination": "/api/ver"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
     }
   ],
   "headers": [

@@ -25,7 +25,7 @@ for (const ext of ['js', 'css']) {
 writeFileSync(root + 'lib/assets.js', `// Generado por scripts/build.js — no editar a mano.\nexport const ASSETS = ${JSON.stringify(names)};\n`);
 
 const { pageStart, pageEnd } = await import(root + 'lib/layout.js?' + Date.now());
-const html = pageStart({ bodyClass: 'home', preloadHome: true }) + `<main id="app" class="app" aria-live="polite">
+const html = pageStart({ bodyClass: 'home', preloadHome: true, canonical: 'https://www.animetrix.lat/', jsonld: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Animetrix', url: 'https://www.animetrix.lat/', potentialAction: { '@type': 'SearchAction', target: 'https://www.animetrix.lat/#/buscar/{q}', 'query-input': 'required name=q' } } }) + `<main id="app" class="app" aria-live="polite">
   <div class="hero sk-hero"></div>
 </main>
 <div class="modal" id="modal" hidden>
