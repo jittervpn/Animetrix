@@ -32,7 +32,8 @@
     close: 'M6 6l12 12M18 6 6 18', left: 'M15 5l-7 7 7 7', right: 'm9 5 7 7-7 7',
   };
   const safeImg = (u) => (typeof u === 'string' && /^https:\/\/image\.tmdb\.org\//.test(u) ? u : null);
-  const big = (u) => u && u.replace(/\/t\/p\/w\d+\//, '/t/p/original/');
+  const sized = (u, w) => u && u.replace(/\/t\/p\/(w\d+|original)\//, '/t/p/' + w + '/');
+  const big = (u) => sized(u, window.innerWidth > 900 ? 'w1280' : 'w780');
 
   /* ---------- almacenamiento local (por navegador) ---------- */
   const store = {
@@ -65,7 +66,7 @@
   async function api(action, params) {
     const qs = new URLSearchParams({ a: action, ...params }).toString();
     if (memo.has(qs)) return memo.get(qs);
-    const p = fetch('/api/data?' + qs, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+    const p = fetch('/api/data?' + qs, { credentials: 'same-origin' })
       .then(async (r) => {
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || 'Error ' + r.status);
@@ -98,7 +99,10 @@
   /* ---------- componentes ---------- */
   function poster(it, cls = 'poster') {
     const src = safeImg(it.poster);
-    if (src) return h('img', { class: cls, src, alt: '', loading: 'lazy', decoding: 'async' });
+    if (src) {
+      return h('img', { class: cls, src: sized(src, 'w342'), srcset: sized(src, 'w185') + ' 185w, ' + sized(src, 'w342') + ' 342w',
+        sizes: cls === 'poster' ? '(max-width: 640px) 40vw, 210px' : '170px', alt: '', loading: 'lazy', decoding: 'async', width: 342, height: 513 });
+    }
     const initials = String(it.title || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
     return h('div', { class: cls + ' poster-ph', 'data-hue': String((it.tmdb * 47) % 360) }, h('span', {}, initials));
   }
@@ -136,36 +140,28 @@
   let view = null;
 
   async function viewHome() {
-    const root = app(); root.replaceChildren(h('div', { class: 'hero sk-hero' }), skeletonRow(), skeletonRow());
-    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('all', { type: t })));
+    const root = app();
+    if (!$('.sk-hero', root)) root.replaceChildren(h('div', { class: 'hero sk-hero' }), skeletonRow(), skeletonRow());
+    else root.append(skeletonRow(), skeletonRow());
+    let d;
+    try { d = await api('home', {}); } catch (e) { if (view === 'home') root.replaceChildren(errorBox('No pudimos cargar el catálogo. Revisa tu conexión.', () => route())); return; }
     if (view !== 'home') return;
-    const lists = Object.fromEntries(Object.keys(TYPES).map((t, i) => [t, res[i].status === 'fulfilled' ? (res[i].value.items || []).slice(0, 24) : []]));
-    const all = [...lists.movie, ...lists.anime, ...lists.serie];
-    root.replaceChildren();
-    if (!all.length) {
-      const failed = res.every((r) => r.status === 'rejected');
-      root.append(failed ? errorBox('No pudimos cargar el catálogo. Revisa tu conexión.', () => route())
-        : h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.')));
-      return;
-    }
-    const withPoster = all.filter((x) => safeImg(x.poster));
-    const feat = (withPoster.length ? withPoster : all)[Math.floor(Math.random() * Math.min(5, (withPoster.length || all.length)))];
-    root.append(hero(feat), statsBand());
-    const hist = seen.all();
-    root.append(...[
-      row('Seguir viendo', hist, null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
-      row('Películas', lists.movie, '#/peliculas'),
-      row('Series', lists.serie, '#/series'),
-      row('Anime', lists.anime, '#/anime'),
+    const lists = d.lists || {};
+    const all = [...(lists.movie || []), ...(lists.anime || []), ...(lists.serie || [])];
+    if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
+    const feat = d.featured || all[0];
+    root.replaceChildren(...[
+      hero(feat), statsBand(d.counts || {}),
+      row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
+      row('Películas', lists.movie || [], '#/peliculas'),
+      row('Series', lists.serie || [], '#/series'),
+      row('Anime', lists.anime || [], '#/anime'),
+      row('Mejor valorados', [...all].filter((x) => x.rating >= 7).sort((a, b) => b.rating - a.rating).slice(0, 20)),
       row('Mi lista', favs.all(), '#/mi-lista'),
     ].filter(Boolean));
-    api('title', { type: feat.type, tmdb: feat.tmdb }).then((d) => {
-      const o = $('.hero-overview'); if (o && d.overview) o.textContent = d.overview;
-      const m = $('.hero-meta');
-      if (m) m.replaceChildren(...metaChips(d));
-      const bg = $('.hero-bg'); const b = safeImg(d.backdrop);
-      if (bg && b) bg.style.backgroundImage = 'url("' + big(b) + '")';
-    }).catch(() => {});
+    // Precarga en segundo plano el catálogo completo para que Películas/Anime abran al instante.
+    const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
+    idle(() => Object.keys(TYPES).forEach((t) => api('all', { type: t }).catch(() => {})));
   }
 
   function metaChips(d) {
@@ -176,31 +172,27 @@
     ].filter(Boolean);
   }
 
-  function statsBand() {
+  function statsBand(counts) {
+    let sum = 0;
     const cells = [['movie', 'Películas', '#/peliculas'], ['serie', 'Series', '#/series'], ['anime', 'Anime', '#/anime']].map(([t, label, href]) => {
-      const n = h('strong', { 'data-count': t }, '–');
+      const v = Number(counts[t]) || 0; sum += v;
+      const n = h('strong', {}, '0'); requestAnimationFrame(() => countUp(n, v));
       return h('a', { class: 'stat', href }, n, h('span', {}, label));
     });
-    const total = h('strong', {}, '–');
-    const band = h('section', { class: 'stats', 'aria-label': 'Catálogo' }, ...cells, h('div', { class: 'stat total' }, total, h('span', {}, 'Títulos en total')));
-    api('stats', {}).then((st) => {
-      let sum = 0;
-      for (const t of Object.keys(TYPES)) { const v = Number(st[t]) || 0; sum += v; const el = band.querySelector('[data-count="' + t + '"]'); if (el) countUp(el, v); }
-      countUp(total, sum);
-    }).catch(() => band.remove());
-    return band;
+    const total = h('strong', {}, '0'); requestAnimationFrame(() => countUp(total, sum));
+    return h('section', { class: 'stats', 'aria-label': 'Catálogo' }, ...cells, h('div', { class: 'stat total' }, total, h('span', {}, 'Títulos en total')));
   }
 
   function hero(it) {
-    const bg = h('div', { class: 'hero-bg' });
-    const p = safeImg(it.poster); if (p) bg.style.backgroundImage = 'url("' + big(p) + '")';
+    const src = safeImg(it.backdrop) || safeImg(it.poster);
+    const bg = h('div', { class: 'hero-bg' }, src ? h('img', { src: big(src), alt: '', fetchpriority: 'high', decoding: 'async' }) : null);
     const resume = seen.get(it);
     return h('section', { class: 'hero' }, bg, h('div', { class: 'hero-shade' }),
       h('div', { class: 'hero-content' },
         h('p', { class: 'eyebrow' }, 'Destacado · ' + SINGULAR[it.type] + (it.year ? ' · ' + it.year : '')),
         h('h1', {}, it.title),
-        h('div', { class: 'hero-meta meta' }),
-        h('p', { class: 'hero-overview' }, ''),
+        h('div', { class: 'hero-meta meta' }, ...metaChips(it)),
+        h('p', { class: 'hero-overview' }, it.overview || ''),
         h('div', { class: 'actions' },
           h('a', { class: 'btn primary lg', href: watchUrl(it, resume?.se, resume?.ep) }, svg(ICON.play), resume ? 'Continuar' : 'Ver ahora'),
           h('a', { class: 'btn glass lg', href: '#/titulo/' + it.type + '/' + it.tmdb }, 'Más info'))));
@@ -438,6 +430,15 @@
     input?.addEventListener('input', () => { clearTimeout(t); if ($('#modal')) t = setTimeout(go, 450); });
 
     if (initWatch()) return;
+
+    // Precarga la ficha cuando el usuario apunta o toca una tarjeta.
+    const intent = (e) => {
+      const a = e.target.closest && e.target.closest('a.card'); if (!a) return;
+      const m = /#\/titulo\/(\w+)\/(\d+)/.exec(a.getAttribute('href') || ''); if (m) api('title', { type: m[1], tmdb: m[2] }).catch(() => {});
+    };
+    document.addEventListener('pointerover', intent, { passive: true });
+    document.addEventListener('touchstart', intent, { passive: true });
+    document.addEventListener('focusin', intent);
 
     const modal = $('#modal');
     modal?.addEventListener('click', (e) => {

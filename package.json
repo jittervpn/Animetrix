@@ -5,6 +5,9 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "dev": "INKAFLIX_DEMO=1 node scripts/dev-server.js",
-    "build:html": "node scripts/build-index.js"
+    "assets": "node scripts/build.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

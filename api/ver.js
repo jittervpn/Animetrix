@@ -69,11 +69,11 @@ export default async function handler(req, res) {
   ].filter(Boolean);
   const meta = metaParts.length ? `<div class="meta watch-meta">${metaParts.join('')}</div>` : '';
 
-  const html = pageStart({ title: `${name} ${epLabel}`.trim(), description: info?.overview || '', bodyClass: 'watch' }) + `
+  const html = pageStart({ title: `${name} ${epLabel}`.trim(), description: info?.overview || '', bodyClass: 'watch', watch: true }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
   <div class="player-wrap"><div class="player">
     <iframe src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
-      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
   <section class="watch-info">
     <div class="watch-head">
@@ -97,6 +97,6 @@ export default async function handler(req, res) {
 ` + pageEnd();
 
   res.statusCode = 200;
-  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=120, stale-while-revalidate=60');
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400');
   res.end(html);
 }

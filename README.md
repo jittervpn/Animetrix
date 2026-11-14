@@ -6,7 +6,8 @@ El reproductor y el catálogo vienen de la API de InkaFlix.
 ## Estructura
 
 ```
-public/          ← web estática (index.html, CSS, JS, logo)
+src/             ← código fuente del frontend (app.js, app.css)
+public/          ← web estática generada (index.html, assets con hash, fuentes)
 api/data.js      ← proxy seguro hacia InkaFlix (la API key nunca llega al navegador)
 api/ver.js       ← página del reproductor (/ver?t=movie&id=950387)
 lib/             ← cliente de la API, validación, plantilla HTML
@@ -60,4 +61,5 @@ Desde ahí, cada cambio que se suba a `main` se publica automáticamente.
 npm run dev          # http://localhost:3000 con datos de ejemplo
 ```
 
-Si cambias `lib/layout.js`, ejecuta `npm run build:html` para regenerar `public/index.html`.
+Tras cambiar `src/` o `lib/layout.js`, ejecuta `npm install` (una vez) y `npm run assets`:
+minifica JS/CSS, les pone hash y regenera `public/index.html`.
