@@ -1,7 +1,7 @@
 // Proxy público: /api/data?a=catalog&type=movie&page=1&q=...
 //                /api/data?a=title&type=serie&tmdb=123
 // El navegador nunca ve la API key: esta función la añade del lado del servidor.
-import { asType, asInt, catalog, title, ApiError } from '../lib/inkaflix.js';
+import { asType, asInt, catalog, catalogAll, stats, title, ApiError } from '../lib/inkaflix.js';
 import { securityHeaders, rateLimited, sendJson } from '../lib/http.js';
 
 export default async function handler(req, res) {
@@ -14,6 +14,9 @@ export default async function handler(req, res) {
 
   const q = req.query || {};
   const one = (v) => (Array.isArray(v) ? v[0] : v);
+  if (one(q.a) === 'stats') {
+    try { return sendJson(res, 200, await stats(), 120); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
+  }
   const type = asType(one(q.type));
   if (!type) return sendJson(res, 400, { error: 'Tipo no válido' });
 
@@ -25,6 +28,8 @@ export default async function handler(req, res) {
         s = s.replace(/[\x00-\x1F\x7F<>]+/g, '').trim().slice(0, 60);
         return sendJson(res, 200, await catalog(type, page, s), 120);
       }
+      case 'all':
+        return sendJson(res, 200, await catalogAll(type), 300);
       case 'title': {
         const tmdb = asInt(one(q.tmdb), 1, 99999999);
         if (tmdb == null) return sendJson(res, 400, { error: 'ID no válido' });

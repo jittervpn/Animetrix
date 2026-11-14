@@ -31,6 +31,7 @@ Desde ahí, cada cambio que se suba a `main` se publica automáticamente.
 | Variable | Uso |
 |---|---|
 | `INKAFLIX_KEY` | **Obligatoria.** API key de InkaFlix |
+| `TMDB_KEY` | API key de TMDB (gratis): activa rating, géneros, fondos y duración |
 | `INKAFLIX_VIEW_KEY` | Key del reproductor, si es distinta (la que sale en el enlace del panel) |
 | `INKAFLIX_EMBED_PATH` | Ruta del reproductor (por defecto `/public/e/`) |
 | `PLAYER_SANDBOX` | `1` bloquea pop-ups de anuncios del reproductor (si el video no carga, quítala) |

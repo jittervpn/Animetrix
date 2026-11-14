@@ -82,6 +82,19 @@
     return '/ver?' + q;
   };
 
+  /* ---------- utilidades de datos ---------- */
+  const fmtRate = (r) => Number(r).toFixed(1);
+  const rateClass = (r) => (r >= 7.5 ? 'hi' : r >= 6 ? 'mid' : 'lo');
+  const fold = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const fmtRuntime = (m) => (m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : m + ' min').trim();
+  function countUp(el, to) {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !to) { el.textContent = String(to); return; }
+    const t0 = performance.now(); const dur = 900;
+    const step = (t) => { const k = Math.min(1, (t - t0) / dur); el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+
   /* ---------- componentes ---------- */
   function poster(it, cls = 'poster') {
     const src = safeImg(it.poster);
@@ -92,7 +105,8 @@
   function card(it, extra) {
     const a = h('a', { class: 'card', href: '#/titulo/' + it.type + '/' + it.tmdb, 'aria-label': it.title },
       h('div', { class: 'card-img' }, poster(it), h('span', { class: 'card-play' }, svg(ICON.play)),
-        extra ? h('span', { class: 'card-badge' }, extra) : null),
+        extra ? h('span', { class: 'card-badge' }, extra) : null,
+        it.rating ? h('span', { class: 'card-rate ' + rateClass(it.rating), 'aria-label': 'Rating ' + it.rating }, '★ ' + fmtRate(it.rating)) : null),
       h('div', { class: 'card-meta' },
         h('strong', {}, it.title),
         h('span', {}, [SINGULAR[it.type], it.year].filter(Boolean).join(' · '))));
@@ -123,9 +137,9 @@
 
   async function viewHome() {
     const root = app(); root.replaceChildren(h('div', { class: 'hero sk-hero' }), skeletonRow(), skeletonRow());
-    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('catalog', { type: t, page: 1 })));
+    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('all', { type: t })));
     if (view !== 'home') return;
-    const lists = Object.fromEntries(Object.keys(TYPES).map((t, i) => [t, res[i].status === 'fulfilled' ? res[i].value.items || [] : []]));
+    const lists = Object.fromEntries(Object.keys(TYPES).map((t, i) => [t, res[i].status === 'fulfilled' ? (res[i].value.items || []).slice(0, 24) : []]));
     const all = [...lists.movie, ...lists.anime, ...lists.serie];
     root.replaceChildren();
     if (!all.length) {
@@ -136,7 +150,7 @@
     }
     const withPoster = all.filter((x) => safeImg(x.poster));
     const feat = (withPoster.length ? withPoster : all)[Math.floor(Math.random() * Math.min(5, (withPoster.length || all.length)))];
-    root.append(hero(feat));
+    root.append(hero(feat), statsBand());
     const hist = seen.all();
     root.append(...[
       row('Seguir viendo', hist, null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
@@ -147,9 +161,34 @@
     ].filter(Boolean));
     api('title', { type: feat.type, tmdb: feat.tmdb }).then((d) => {
       const o = $('.hero-overview'); if (o && d.overview) o.textContent = d.overview;
+      const m = $('.hero-meta');
+      if (m) m.replaceChildren(...metaChips(d));
       const bg = $('.hero-bg'); const b = safeImg(d.backdrop);
       if (bg && b) bg.style.backgroundImage = 'url("' + big(b) + '")';
     }).catch(() => {});
+  }
+
+  function metaChips(d) {
+    return [
+      d.rating ? h('span', { class: 'rate-pill ' + rateClass(d.rating) }, '★ ' + fmtRate(d.rating), d.votes ? h('small', {}, ' (' + d.votes.toLocaleString('es') + ')') : null) : null,
+      d.runtime ? h('span', {}, fmtRuntime(d.runtime)) : null,
+      ...(d.genres || []).slice(0, 3).map((g) => h('span', {}, g)),
+    ].filter(Boolean);
+  }
+
+  function statsBand() {
+    const cells = [['movie', 'Películas', '#/peliculas'], ['serie', 'Series', '#/series'], ['anime', 'Anime', '#/anime']].map(([t, label, href]) => {
+      const n = h('strong', { 'data-count': t }, '–');
+      return h('a', { class: 'stat', href }, n, h('span', {}, label));
+    });
+    const total = h('strong', {}, '–');
+    const band = h('section', { class: 'stats', 'aria-label': 'Catálogo' }, ...cells, h('div', { class: 'stat total' }, total, h('span', {}, 'Títulos en total')));
+    api('stats', {}).then((st) => {
+      let sum = 0;
+      for (const t of Object.keys(TYPES)) { const v = Number(st[t]) || 0; sum += v; const el = band.querySelector('[data-count="' + t + '"]'); if (el) countUp(el, v); }
+      countUp(total, sum);
+    }).catch(() => band.remove());
+    return band;
   }
 
   function hero(it) {
@@ -160,50 +199,96 @@
       h('div', { class: 'hero-content' },
         h('p', { class: 'eyebrow' }, 'Destacado · ' + SINGULAR[it.type] + (it.year ? ' · ' + it.year : '')),
         h('h1', {}, it.title),
+        h('div', { class: 'hero-meta meta' }),
         h('p', { class: 'hero-overview' }, ''),
         h('div', { class: 'actions' },
           h('a', { class: 'btn primary lg', href: watchUrl(it, resume?.se, resume?.ep) }, svg(ICON.play), resume ? 'Continuar' : 'Ver ahora'),
           h('a', { class: 'btn glass lg', href: '#/titulo/' + it.type + '/' + it.tmdb }, 'Más info'))));
   }
 
+  const filters = { movie: {}, serie: {}, anime: {} };
   async function viewGrid(type) {
     const root = app();
+    const f = filters[type];
     const tabs = h('div', { class: 'chips', role: 'tablist' }, Object.entries(TYPES).map(([t, n]) =>
       h('a', { class: 'chip', href: '#/' + SLUG_OF[t], role: 'tab', 'aria-selected': String(t === type) }, n)));
-    const grid = h('div', { class: 'grid' });
+    const count = h('p', { class: 'page-count' }, ' ');
+    const grid = h('div', { class: 'grid' }, Array.from({ length: 12 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' }))));
+    const bar = h('form', { class: 'filters', role: 'search', onsubmit: (e) => e.preventDefault() });
     const more = h('button', { class: 'btn ghost more', type: 'button', hidden: true }, 'Cargar más');
-    root.replaceChildren(h('section', { class: 'page' }, h('h1', { class: 'page-title' }, TYPES[type]), tabs, grid, more));
-    let page = 1;
-    const load = async () => {
-      more.disabled = true; more.textContent = 'Cargando…';
-      if (page === 1) grid.replaceChildren(...Array.from({ length: 12 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' }))));
-      try {
-        const r = await api('catalog', { type, page });
-        if (view !== 'grid:' + type) return;
-        if (page === 1) grid.replaceChildren();
-        grid.append(...(r.items || []).map((it) => card(it)));
-        if (page === 1 && !(r.items || []).length) grid.replaceWith(h('div', { class: 'empty' }, h('p', {}, 'Aún no hay ' + TYPES[type].toLowerCase() + ' en el catálogo.')));
-        const shown = (r.page - 1) * (r.per_page || 20) + (r.items || []).length;
-        more.hidden = !(r.items || []).length || shown >= (r.total || 0);
-        page++;
-      } catch (e) {
-        if (page === 1) grid.replaceChildren(errorBox(e.message, load));
-      } finally { more.disabled = false; more.textContent = 'Cargar más'; }
+    root.replaceChildren(h('section', { class: 'page' }, h('h1', { class: 'page-title' }, TYPES[type]), count, tabs, bar, grid, more));
+
+    let data;
+    try { data = await api('all', { type }); } catch (e) { grid.replaceChildren(errorBox(e.message, () => viewGrid(type))); return; }
+    if (view !== 'grid:' + type) return;
+    const items = data.items || [];
+    if (!items.length) { count.textContent = ''; bar.remove(); grid.replaceWith(h('div', { class: 'empty' }, h('p', {}, 'Aún no hay ' + TYPES[type].toLowerCase() + ' en el catálogo.'))); return; }
+
+    const years = [...new Set(items.map((x) => x.year).filter(Boolean))].sort((a, b) => b - a);
+    const genres = [...new Set(items.flatMap((x) => x.genres || []))].sort((a, b) => a.localeCompare(b, 'es'));
+    const sel = (name, label, opts, val) => h('label', { class: 'fld' }, h('span', {}, label),
+      h('select', { name }, opts.map(([v, t]) => h('option', { value: v, selected: String(val ?? '') === String(v) }, t))));
+    bar.append(...[
+      h('label', { class: 'fld grow' }, h('span', {}, 'Buscar'), h('input', { name: 'q', type: 'search', placeholder: 'Título…', maxlength: 60, value: f.q || '' })),
+      sel('y', 'Año', [['', 'Todos'], ...years.map((y) => [y, y])], f.y),
+      genres.length ? sel('g', 'Género', [['', 'Todos'], ...genres.map((g) => [g, g])], f.g) : null,
+      data.tmdb ? sel('r', 'Rating', [['', 'Cualquiera'], ['8', '8+ ★'], ['7', '7+ ★'], ['6', '6+ ★'], ['5', '5+ ★']], f.r) : null,
+      sel('o', 'Ordenar', [['new', 'Más recientes'], ...(data.tmdb ? [['top', 'Mejor valoradas']] : []), ['az', 'A – Z'], ['old', 'Más antiguas']], f.o || 'new'),
+      h('button', { class: 'btn ghost reset', type: 'reset' }, 'Limpiar'),
+    ].filter(Boolean));
+
+    let shown = 0; let list = [];
+    const PAGE = 30;
+    const paint = (reset) => {
+      if (reset) { grid.replaceChildren(); shown = 0; }
+      const next = list.slice(shown, shown + PAGE);
+      grid.append(...next.map((it) => card(it)));
+      shown += next.length;
+      more.hidden = shown >= list.length;
     };
-    more.addEventListener('click', load);
-    await load();
+    const apply = () => {
+      const fd = new FormData(bar);
+      Object.assign(f, { q: String(fd.get('q') || '').trim(), y: fd.get('y') || '', g: fd.get('g') || '', r: fd.get('r') || '', o: fd.get('o') || 'new' });
+      const q = fold(f.q);
+      list = items.filter((it) => (!q || fold(it.title).includes(q))
+        && (!f.y || String(it.year) === String(f.y))
+        && (!f.g || (it.genres || []).includes(f.g))
+        && (!f.r || (it.rating || 0) >= Number(f.r)));
+      const by = {
+        new: (a, b) => (b.year || 0) - (a.year || 0),
+        old: (a, b) => (a.year || 9999) - (b.year || 9999),
+        az: (a, b) => a.title.localeCompare(b.title, 'es'),
+        top: (a, b) => (b.rating || 0) - (a.rating || 0),
+      }[f.o] || (() => 0);
+      list = [...list].sort(by);
+      count.replaceChildren(h('strong', {}, String(list.length)), list.length === items.length
+        ? ' ' + (list.length === 1 ? 'título' : 'títulos') + ' disponibles'
+        : ' de ' + items.length + ' títulos');
+      if (!list.length) { grid.replaceChildren(h('div', { class: 'empty inline' }, h('p', {}, 'Nada coincide con esos filtros.'))); more.hidden = true; return; }
+      paint(true);
+    };
+    let t;
+    bar.addEventListener('input', (e) => { clearTimeout(t); t = setTimeout(apply, e.target.name === 'q' ? 250 : 0); });
+    bar.addEventListener('change', apply);
+    bar.addEventListener('reset', () => setTimeout(() => { for (const k of Object.keys(f)) delete f[k]; apply(); }, 0));
+    more.addEventListener('click', () => paint(false));
+    apply();
   }
 
   async function viewSearch(q) {
     const root = app();
-    root.replaceChildren(h('section', { class: 'page' }, h('h1', { class: 'page-title' }, 'Resultados para “', q, '”'), h('div', { class: 'grid' },
+    const title = () => h('h1', { class: 'page-title' }, 'Resultados para “', q, '”');
+    root.replaceChildren(h('section', { class: 'page' }, title(), h('div', { class: 'grid' },
       Array.from({ length: 8 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' }))))));
-    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('catalog', { type: t, page: 1, q })));
+    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('all', { type: t })));
     if (view !== 'search:' + q) return;
-    const items = res.flatMap((r) => (r.status === 'fulfilled' ? r.value.items || [] : []));
-    const sec = h('section', { class: 'page' }, h('h1', { class: 'page-title' }, 'Resultados para “', q, '”'));
+    const fq = fold(q);
+    const items = res.flatMap((r) => (r.status === 'fulfilled' ? r.value.items || [] : []))
+      .filter((it) => fold(it.title).includes(fq) || (it.genres || []).some((g) => fold(g) === fq) || String(it.year) === q.trim());
+    const sec = h('section', { class: 'page' }, title(),
+      h('p', { class: 'page-count' }, h('strong', {}, String(items.length)), items.length === 1 ? ' resultado' : ' resultados'));
     sec.append(items.length ? h('div', { class: 'grid' }, items.map((it) => card(it)))
-      : h('div', { class: 'empty' }, h('p', {}, 'No encontramos nada con ese nombre. Prueba con otra palabra.')));
+      : h('div', { class: 'empty' }, h('p', {}, 'No encontramos nada con ese nombre. Prueba con otra palabra, un año o un género.')));
     root.replaceChildren(sec);
   }
 
@@ -250,7 +335,9 @@
         h('div', { class: 'm-info' },
           h('p', { class: 'eyebrow' }, [SINGULAR[d.type], d.year, d.type !== 'movie' && d.episodes ? d.episodes + ' episodios' : null].filter(Boolean).join(' · ')),
           h('h2', { id: 'mTitle' }, d.title),
-          d.genres?.length ? h('div', { class: 'tags' }, d.genres.map((g) => h('span', {}, g))) : null,
+          d.tagline ? h('p', { class: 'tagline' }, d.tagline) : null,
+          h('div', { class: 'meta' }, ...metaChips({ ...d, genres: [] })),
+          d.genres?.length ? h('div', { class: 'tags' }, d.genres.map((g) => h('a', { href: '#/buscar/' + encodeURIComponent(g) }, g))) : null,
           d.overview ? h('p', { class: 'overview' }, d.overview) : null,
           h('div', { class: 'actions' }, h('a', { class: 'btn primary lg', href: playHref }, svg(ICON.play), playLabel), fav))),
       d.type !== 'movie' ? seasonsBlock(d, resume) : null].filter(Boolean));

@@ -61,6 +61,14 @@ export default async function handler(req, res) {
     </form>`;
   }
 
+  const rc = (r) => (r >= 7.5 ? 'hi' : r >= 6 ? 'mid' : 'lo');
+  const metaParts = [
+    info?.rating ? `<span class="rate-pill ${rc(info.rating)}">★ ${Number(info.rating).toFixed(1)}</span>` : '',
+    info?.runtime && type === 'movie' ? `<span>${info.runtime >= 60 ? Math.floor(info.runtime / 60) + ' h ' + (info.runtime % 60 || '') + (info.runtime % 60 ? ' min' : '') : info.runtime + ' min'}</span>` : '',
+    ...(info?.genres || []).slice(0, 3).map((g) => `<span>${esc(g)}</span>`),
+  ].filter(Boolean);
+  const meta = metaParts.length ? `<div class="meta watch-meta">${metaParts.join('')}</div>` : '';
+
   const html = pageStart({ title: `${name} ${epLabel}`.trim(), description: info?.overview || '', bodyClass: 'watch' }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
   <div class="player-wrap"><div class="player">
@@ -73,6 +81,7 @@ export default async function handler(req, res) {
       <div>
         <p class="eyebrow">${LABEL[type]}${info?.year ? ' · ' + info.year : ''}</p>
         <h1>${esc(name)}${epLabel ? ` <span class="ep-tag">${epLabel}</span>` : ''}</h1>
+        ${meta}
       </div>
       <button class="btn ghost" type="button" id="favBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Mi lista</span></button>
     </div>
