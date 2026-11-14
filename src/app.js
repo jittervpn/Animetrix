@@ -416,6 +416,11 @@
     let w; try { w = JSON.parse(el.dataset.watch); } catch { return true; }
     if (!TYPES[w.type]) return true;
     seen.push(w, w.se, w.ep);
+    // Recordar el video abierto: si un anuncio saca al usuario, se le ofrece volver con un toque.
+    store.set('last_watch', { url: location.pathname + location.search, title: String(w.title || '').slice(0, 100), type: w.type, se: w.se, ep: w.ep, t: Date.now() });
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    window.addEventListener('pageshow', () => window.scrollTo(0, 0));
     const b = $('#favBtn');
     if (b) {
       const paint = () => { const on = favs.has(w); b.setAttribute('aria-pressed', String(on)); $('span', b).textContent = on ? 'En mi lista' : 'Mi lista'; };
@@ -453,6 +458,20 @@
     btn?.addEventListener('click', () => setCompat(frame.hasAttribute('sandbox'), true));
   }
 
+  /* ---------- botón flotante "Volver al video" ---------- */
+  function resumeBanner() {
+    const lw = store.get('last_watch', null);
+    if (!lw || typeof lw.url !== 'string' || !/^\/ver\?[\w=&%.-]+$/.test(lw.url) || Date.now() - lw.t > 45 * 60e3) return;
+    const label = lw.title + (lw.type !== 'movie' && lw.ep ? ' · T' + lw.se + ' E' + lw.ep : '');
+    const close = h('button', { class: 'resume-x', type: 'button', 'aria-label': 'Cerrar' }, svg(ICON.close));
+    const el = h('div', { class: 'resume', role: 'status' },
+      h('a', { class: 'resume-go', href: lw.url }, h('span', { class: 'resume-ic' }, svg(ICON.play)),
+        h('span', { class: 'resume-tx' }, h('small', {}, 'Volver al video'), h('strong', {}, label))),
+      close);
+    close.addEventListener('click', () => { store.set('last_watch', null); el.remove(); });
+    document.body.append(el);
+  }
+
   /* ---------- arranque ---------- */
   document.addEventListener('DOMContentLoaded', () => {
     const top = $('#topbar');
@@ -485,5 +504,6 @@
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal && !modal.hidden) $('[data-close]', modal)?.click(); });
     window.addEventListener('hashchange', route);
     route();
+    resumeBanner();
   });
 })();
