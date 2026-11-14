@@ -425,32 +425,21 @@
     const frame = $('#player'); if (!frame) return;
     const btn = $('#compatBtn'); const txt = $('#shieldText'); const bar = $('#playerBar');
     const sandboxValue = frame.getAttribute('sandbox');
-    let leavingOnPurpose = false;
-
-    // Si un anuncio intenta sacar al usuario de la página, el navegador pregunta antes.
-    // Los enlaces propios del sitio no disparan la pregunta.
-    document.addEventListener('click', (e) => { if (e.target.closest('a[href], form button')) leavingOnPurpose = true; }, true);
-    document.addEventListener('submit', () => { leavingOnPurpose = true; }, true);
-    window.addEventListener('beforeunload', (e) => {
-      if (leavingOnPurpose || frame.hasAttribute('sandbox')) return;
-      e.preventDefault(); e.returnValue = '';
-    });
-
+    if (!sandboxValue) return;
+    const KEY = 'player_mode_v2'; // nueva clave: todos vuelven a empezar con la protección activada
     const reload = () => { const src = frame.src; frame.src = 'about:blank'; setTimeout(() => { frame.src = src; }, 30); };
     const paint = (compat) => {
-      if (!bar) return;
       bar.classList.toggle('compat', compat);
-      txt.textContent = compat ? 'Modo compatible: pueden aparecer anuncios' : 'Bloqueo de anuncios activado';
-      btn.textContent = compat ? 'Volver a bloquear anuncios' : '¿No carga el video? Usar modo compatible';
+      txt.textContent = compat ? 'Modo compatible: un anuncio podría sacarte de la página' : 'Protección activada: los anuncios no te sacarán del video';
+      btn.textContent = compat ? 'Activar protección' : '¿No carga? Usar modo compatible';
     };
     const setCompat = (compat, doReload) => {
-      if (!sandboxValue) return;
       if (compat) frame.removeAttribute('sandbox'); else frame.setAttribute('sandbox', sandboxValue);
-      store.set('player_compat', compat);
+      store.set(KEY, compat ? 'compat' : 'safe');
       paint(compat);
       if (doReload) reload();
     };
-    if (store.get('player_compat', false) === true) setCompat(true, true); else paint(false);
+    if (store.get(KEY, 'safe') === 'compat') setCompat(true, true); else paint(false);
     btn?.addEventListener('click', () => setCompat(frame.hasAttribute('sandbox'), true));
   }
 

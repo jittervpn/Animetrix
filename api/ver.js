@@ -41,8 +41,9 @@ export default async function handler(req, res) {
 
   const link = ([s, e]) => '/ver?' + new URLSearchParams({ t: type, id: String(tmdb), se: String(s), ep: String(e) });
   const epLabel = type === 'movie' ? '' : `T${se} · E${ep}`;
-  // Sin allow-popups ni allow-top-navigation: los anuncios no pueden abrir ventanas ni sacar al usuario de la página.
-  const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-orientation-lock allow-pointer-lock"' : '';
+  // Protección: SIN allow-top-navigation → ningún anuncio puede sacar al usuario de la página.
+  // Con allow-popups → el reproductor puede abrir su anuncio en otra pestaña (muchos lo exigen para soltar el video).
+  const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox allow-orientation-lock allow-pointer-lock"' : '';
   const watchData = JSON.stringify({ type, tmdb, title: name, poster: info?.poster || null, year: info?.year || null, se, ep });
 
   let episodesHtml = '';
@@ -77,8 +78,8 @@ export default async function handler(req, res) {
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
   ${sandbox ? `<div class="player-bar" id="playerBar">
-    <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Bloqueo de anuncios activado</span></span>
-    <button type="button" class="link-btn" id="compatBtn">¿No carga el video? Usar modo compatible</button>
+    <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Protección activada: los anuncios no te sacarán del video</span></span>
+    <button type="button" class="link-btn" id="compatBtn">¿No carga? Usar modo compatible</button>
   </div>` : ''}
   <section class="watch-info">
     <div class="watch-head">
@@ -96,7 +97,7 @@ export default async function handler(req, res) {
     </div>` : ''}
     ${info?.overview ? `<p class="overview">${esc(info.overview)}</p>` : ''}
     ${episodesHtml}
-    <p class="hint">¿No carga el video? Toca “Usar modo compatible” debajo del reproductor, recarga la página o prueba en unos minutos.</p>
+    <p class="hint">Si al tocar el video se abre una pestaña de anuncio, ciérrala y vuelve aquí: tu video sigue en el mismo lugar.</p>
   </section>
 </main>
 ` + pageEnd();
