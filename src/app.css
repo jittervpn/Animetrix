@@ -403,3 +403,11 @@ a.stat:hover { background: #151927; }
 .resume-x { flex: none; width: 36px; height: 36px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; }
 .resume-x:hover { color: var(--text); background: rgba(255,255,255,.06); }
 @media (max-width: 820px) { .resume { bottom: calc(72px + env(safe-area-inset-bottom)); } }
+
+/* ---------- aviso para cerrar anuncios ---------- */
+.ad-tip { display: flex; align-items: flex-start; gap: 10px; max-width: 1200px; margin: 0 auto; padding: 10px var(--pad);
+  font-size: 12.5px; line-height: 1.45; color: #c9cede; border-bottom: 1px solid var(--line); background: rgba(200,255,46,.04); }
+.ad-tip svg { flex: none; width: 18px; height: 18px; color: var(--acc); margin-top: 1px; }
+.ad-tip p { margin: 0; }
+.ad-tip strong { color: var(--text); }
+.ad-tip em { font-style: normal; color: var(--acc); }

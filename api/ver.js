@@ -77,6 +77,10 @@ export default async function handler(req, res) {
     <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
+  <div class="ad-tip" id="adTip">
+    <svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+    <p><strong>Cerrar anuncios:</strong> si al tocar el video aparece <em>“¿Salir de esta página?”</em> o <em>“Confirmar navegación”</em>, toca <strong>Quedarme / Cancelar</strong>. El anuncio se cierra y tu video sigue igual.</p>
+  </div>
   ${sandbox ? `<div class="player-bar" id="playerBar">
     <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Protección activada: los anuncios no te sacarán del video</span></span>
     <button type="button" class="link-btn" id="compatBtn">¿No carga? Usar modo compatible</button>

@@ -436,7 +436,29 @@
   }
 
   /* ---------- reproductor: bloqueo de anuncios y modo compatible ---------- */
+  /* Escudo anti-redirección: si un anuncio del reproductor intenta sacar al usuario de la página,
+     el navegador pregunta "¿Salir?" y con "Quedarme" el anuncio se cancela sin recargar el video.
+     Los enlaces y botones propios del sitio, y el botón Atrás, salen sin preguntar. */
+  function adShield() {
+    if (!$('#player')) return;
+    let leaving = false;
+    const leave = () => { leaving = true; };
+    document.addEventListener('click', (e) => { if (e.target.closest('a[href], button[type=submit], form button')) leave(); }, true);
+    document.addEventListener('submit', leave, true);
+    window.addEventListener('beforeunload', (e) => {
+      if (leaving) return;
+      e.preventDefault(); e.returnValue = '';
+    });
+    window.addEventListener('pageshow', () => { leaving = false; });
+    // Botón Atrás del celular: se intercepta para salir sin la pregunta.
+    try {
+      history.pushState({ axGuard: 1 }, '', location.href);
+      window.addEventListener('popstate', () => { leave(); history.back(); }, { once: true });
+    } catch { /* sin history API */ }
+  }
+
   function initPlayer() {
+    adShield();
     const frame = $('#player'); if (!frame) return;
     const btn = $('#compatBtn'); const txt = $('#shieldText'); const bar = $('#playerBar');
     const sandboxValue = frame.getAttribute('sandbox');
