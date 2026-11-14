@@ -35,4 +35,7 @@ const html = pageStart({ bodyClass: 'home', preloadHome: true }) + `<main id="ap
 <noscript><p class="noscript">Activa JavaScript para usar el catálogo.</p></noscript>
 ` + pageEnd();
 writeFileSync(root + 'public/index.html', html);
+writeFileSync(root + 'public/404.html', pageStart({ title: 'Página no encontrada' })
+  + '<main id="app" class="app"><section class="empty"><h1>Esta página no existe</h1><p>Puede que el enlace esté roto o el título ya no esté disponible.</p><p><a class="btn primary" href="/">Ir al inicio</a></p></section></main>'
+  + pageEnd());
 console.log('public/index.html generado');

@@ -309,6 +309,7 @@
     }
     if (modal.hidden) return;
     const resume = seen.get(d);
+    if (d.seasons?.length) d.episodes = d.seasons.reduce((n, x) => n + x.episodes.length, 0);
     const fav = h('button', { class: 'btn glass', type: 'button', 'aria-pressed': String(favs.has(d)) });
     const paintFav = () => { const on = favs.has(d); fav.setAttribute('aria-pressed', String(on)); fav.replaceChildren(svg(on ? ICON.check : ICON.plus), on ? 'En mi lista' : 'Mi lista'); };
     fav.addEventListener('click', () => { favs.toggle(d); paintFav(); }); paintFav();
@@ -373,7 +374,8 @@
   /* ---------- router ---------- */
   let baseRoute = null;
   async function route() {
-    const hash = decodeURIComponent(location.hash.replace(/^#/, '')) || '/';
+    let hash;
+    try { hash = decodeURIComponent(location.hash.replace(/^#/, '')) || '/'; } catch { hash = '/'; }
     const parts = hash.split('/').filter(Boolean);
     if (parts[0] === 'titulo' && TYPES[parts[1]] && /^\d{1,9}$/.test(parts[2] || '')) {
       if (!baseRoute) { baseRoute = '/'; await render('/'); }
@@ -412,9 +414,44 @@
       b.addEventListener('click', () => { favs.toggle(w); paint(); }); paint();
     }
     const eps = $('.episodes'); if (eps) bindSeasonTabs(eps);
+    initPlayer();
     $('.ep-list a[aria-current]')?.scrollIntoView({ block: 'nearest' });
     $$('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === w.type));
     return true;
+  }
+
+  /* ---------- reproductor: bloqueo de anuncios y modo compatible ---------- */
+  function initPlayer() {
+    const frame = $('#player'); if (!frame) return;
+    const btn = $('#compatBtn'); const txt = $('#shieldText'); const bar = $('#playerBar');
+    const sandboxValue = frame.getAttribute('sandbox');
+    let leavingOnPurpose = false;
+
+    // Si un anuncio intenta sacar al usuario de la página, el navegador pregunta antes.
+    // Los enlaces propios del sitio no disparan la pregunta.
+    document.addEventListener('click', (e) => { if (e.target.closest('a[href], form button')) leavingOnPurpose = true; }, true);
+    document.addEventListener('submit', () => { leavingOnPurpose = true; }, true);
+    window.addEventListener('beforeunload', (e) => {
+      if (leavingOnPurpose || frame.hasAttribute('sandbox')) return;
+      e.preventDefault(); e.returnValue = '';
+    });
+
+    const reload = () => { const src = frame.src; frame.src = 'about:blank'; setTimeout(() => { frame.src = src; }, 30); };
+    const paint = (compat) => {
+      if (!bar) return;
+      bar.classList.toggle('compat', compat);
+      txt.textContent = compat ? 'Modo compatible: pueden aparecer anuncios' : 'Bloqueo de anuncios activado';
+      btn.textContent = compat ? 'Volver a bloquear anuncios' : '¿No carga el video? Usar modo compatible';
+    };
+    const setCompat = (compat, doReload) => {
+      if (!sandboxValue) return;
+      if (compat) frame.removeAttribute('sandbox'); else frame.setAttribute('sandbox', sandboxValue);
+      store.set('player_compat', compat);
+      paint(compat);
+      if (doReload) reload();
+    };
+    if (store.get('player_compat', false) === true) setCompat(true, true); else paint(false);
+    btn?.addEventListener('click', () => setCompat(frame.hasAttribute('sandbox'), true));
   }
 
   /* ---------- arranque ---------- */

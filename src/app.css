@@ -308,3 +308,12 @@ a.stat:hover { background: #151927; }
   .fld { min-width: 0; }
 }
 .watch-meta { margin: 8px 0 0; font-size: 13px; }
+
+/* ---------- barra del reproductor ---------- */
+.player-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px;
+  max-width: 1200px; margin: 0 auto; padding: 10px var(--pad); font-size: 13px; font-weight: 700; border-bottom: 1px solid var(--line); }
+.shield { display: inline-flex; align-items: center; gap: 8px; color: var(--acc); }
+.shield svg { width: 18px; height: 18px; }
+.player-bar.compat .shield { color: #ffd166; }
+.link-btn { border: 0; background: none; padding: 4px 0; cursor: pointer; color: var(--muted); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--text); }

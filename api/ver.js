@@ -41,7 +41,8 @@ export default async function handler(req, res) {
 
   const link = ([s, e]) => '/ver?' + new URLSearchParams({ t: type, id: String(tmdb), se: String(s), ep: String(e) });
   const epLabel = type === 'movie' ? '' : `T${se} · E${ep}`;
-  const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms"' : '';
+  // Sin allow-popups ni allow-top-navigation: los anuncios no pueden abrir ventanas ni sacar al usuario de la página.
+  const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-orientation-lock allow-pointer-lock"' : '';
   const watchData = JSON.stringify({ type, tmdb, title: name, poster: info?.poster || null, year: info?.year || null, se, ep });
 
   let episodesHtml = '';
@@ -72,9 +73,13 @@ export default async function handler(req, res) {
   const html = pageStart({ title: `${name} ${epLabel}`.trim(), description: info?.overview || '', bodyClass: 'watch', watch: true }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
   <div class="player-wrap"><div class="player">
-    <iframe src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
-      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" referrerpolicy="origin"${sandbox}></iframe>
+    <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
+  ${sandbox ? `<div class="player-bar" id="playerBar">
+    <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Bloqueo de anuncios activado</span></span>
+    <button type="button" class="link-btn" id="compatBtn">¿No carga el video? Usar modo compatible</button>
+  </div>` : ''}
   <section class="watch-info">
     <div class="watch-head">
       <a class="back" href="/#/titulo/${type}/${tmdb}" aria-label="Volver a la ficha"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
@@ -91,7 +96,7 @@ export default async function handler(req, res) {
     </div>` : ''}
     ${info?.overview ? `<p class="overview">${esc(info.overview)}</p>` : ''}
     ${episodesHtml}
-    <p class="hint">¿No carga el video? Recarga la página o prueba en unos minutos: el servidor puede estar ocupado.</p>
+    <p class="hint">¿No carga el video? Toca “Usar modo compatible” debajo del reproductor, recarga la página o prueba en unos minutos.</p>
   </section>
 </main>
 ` + pageEnd();
