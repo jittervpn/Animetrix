@@ -233,7 +233,7 @@ public class MainActivity extends Activity {
             web.setVisibility(View.GONE);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-            setImmersive(true);
+            setFullscreenBars(true);
         }
 
         @Override
@@ -249,12 +249,12 @@ public class MainActivity extends Activity {
         web.setVisibility(View.VISIBLE);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        setImmersive(false);
+        setFullscreenBars(false);
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
     }
 
     @SuppressWarnings("deprecation")
-    private void setImmersive(boolean on) {
+    private void setFullscreenBars(boolean on) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             WindowInsetsController c = getWindow().getInsetsController();
             if (c == null) return;
