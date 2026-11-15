@@ -151,7 +151,7 @@
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
     root.replaceChildren(...[
-      hero(feat), statsBand(d.counts || {}),
+      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
@@ -159,6 +159,7 @@
       row('Mejor valorados', [...all].filter((x) => x.rating >= 7).sort((a, b) => b.rating - a.rating).slice(0, 20)),
       row('Mi lista', favs.all(), '#/mi-lista'),
     ].filter(Boolean));
+    paintGreeting();
     // Precarga en segundo plano el catálogo completo para que Películas/Anime abran al instante.
     const idle = window.requestIdleCallback || ((f) => setTimeout(f, 1200));
     idle(() => Object.keys(TYPES).forEach((t) => api('all', { type: t }).catch(() => {})));
@@ -480,6 +481,46 @@
     btn?.addEventListener('click', () => setCompat(frame.hasAttribute('sandbox'), true));
   }
 
+  /* ---------- bienvenida para cada usuario ---------- */
+  const cleanName = (v) => String(v || '').normalize('NFC').replace(/[^\p{L}\p{N} '._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  const userName = () => cleanName(store.get('user_name', ''));
+  function greeting() {
+    const hr = new Date().getHours();
+    const part = hr < 6 ? 'Buenas noches' : hr < 13 ? 'Buenos días' : hr < 20 ? 'Buenas tardes' : 'Buenas noches';
+    const n = userName();
+    const visits = Number(store.get('visits', 0)) || 0;
+    return { title: n ? `${part}, ${n}` : part, sub: visits > 1 ? '¡Qué bueno verte de nuevo! ¿Qué vemos hoy?' : '¿Qué vemos hoy?' };
+  }
+  function welcome() {
+    if (store.get('welcomed', false)) { store.set('visits', (Number(store.get('visits', 0)) || 0) + 1); return; }
+    const input = h('input', { type: 'text', name: 'name', maxlength: 24, autocomplete: 'given-name', placeholder: 'Tu nombre (opcional)', 'aria-label': 'Tu nombre' });
+    const feat = (icon, title, text) => h('li', {}, h('span', { class: 'wf-ic' }, svg(icon)), h('div', {}, h('strong', {}, title), h('span', {}, text)));
+    const done = (e) => {
+      e?.preventDefault();
+      store.set('user_name', cleanName(input.value)); store.set('welcomed', true); store.set('visits', 1);
+      ov.classList.add('out'); setTimeout(() => { ov.remove(); document.body.classList.remove('no-scroll'); paintGreeting(); }, 250);
+    };
+    const ov = h('div', { class: 'welcome', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'wTitle' },
+      h('form', { class: 'welcome-card', onsubmit: done },
+        h('img', { src: '/assets/logo.svg', alt: '', width: 64, height: 64, class: 'welcome-logo' }),
+        h('p', { class: 'eyebrow' }, 'Te damos la bienvenida'),
+        h('h2', { id: 'wTitle' }, '¡Hola! Esto es Animetrix'),
+        h('p', { class: 'welcome-sub' }, 'Películas, series y anime en un solo lugar. ¿Cómo te llamamos?'),
+        input,
+        h('ul', { class: 'welcome-feat' },
+          feat('M6 3h12v18l-6-4-6 4z', 'Mi lista', 'Guarda lo que quieras ver después.'),
+          feat('M7 4.5v15l13-7.5z', 'Seguir viendo', 'Retoma tus series en el episodio exacto.'),
+          feat('M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z', 'Lo mejor valorado', 'Rating, géneros y filtros para elegir rápido.')),
+        h('button', { class: 'btn primary lg', type: 'submit' }, 'Empezar a ver')));
+    document.body.append(ov); document.body.classList.add('no-scroll');
+    setTimeout(() => input.focus(), 300);
+  }
+  function paintGreeting() {
+    const el = $('#greet'); if (!el) return;
+    const g = greeting();
+    el.replaceChildren(h('strong', {}, g.title + ' 👋'), h('span', {}, g.sub));
+  }
+
   /* ---------- botón flotante "Volver al video" ---------- */
   function resumeBanner() {
     const lw = store.get('last_watch', null);
@@ -527,5 +568,6 @@
     window.addEventListener('hashchange', route);
     route();
     resumeBanner();
+    welcome();
   });
 })();

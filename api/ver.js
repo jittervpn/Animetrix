@@ -1,7 +1,7 @@
 // Página del reproductor: /ver?t=movie&id=950387
 //                        /ver?t=serie&id=230424&se=1&ep=10
 import { asType, asInt, title as getTitle, embedUrl, esc, config } from '../lib/inkaflix.js';
-import { securityHeaders } from '../lib/http.js';
+import { securityHeaders, rateLimited } from '../lib/http.js';
 import { pageStart, pageEnd } from '../lib/layout.js';
 
 const LABEL = { movie: 'Película', serie: 'Serie', anime: 'Anime' };
@@ -9,6 +9,10 @@ const LABEL = { movie: 'Película', serie: 'Serie', anime: 'Anime' };
 export default async function handler(req, res) {
   securityHeaders(res, true);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  if (rateLimited(req, 120)) {
+    res.statusCode = 429; res.setHeader('Retry-After', '60'); res.setHeader('Cache-Control', 'no-store');
+    return res.end(pageStart({ title: 'Espera un momento' }) + '<main id="app" class="app"><section class="empty"><h1>Demasiadas solicitudes</h1><p>Espera un minuto y vuelve a intentar.</p></section></main>' + pageEnd());
+  }
   const one = (v) => (Array.isArray(v) ? v[0] : v);
   const q = req.query || {};
   const type = asType(one(q.t));

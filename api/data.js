@@ -2,14 +2,14 @@
 //                /api/data?a=title&type=serie&tmdb=123
 // El navegador nunca ve la API key: esta función la añade del lado del servidor.
 import { asType, asInt, catalog, catalogAll, stats, home, title, ApiError } from '../lib/inkaflix.js';
-import { securityHeaders, rateLimited, sendJson } from '../lib/http.js';
+import { securityHeaders, rateLimited, sendJson, logSuspicious } from '../lib/http.js';
 
 export default async function handler(req, res) {
   securityHeaders(res, false);
-  if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return sendJson(res, 405, { error: 'Método no permitido' }); }
+  if (req.method !== 'GET') { logSuspicious(req, 'method-' + req.method); res.setHeader('Allow', 'GET'); return sendJson(res, 405, { error: 'Método no permitido' }); }
 
   const site = req.headers['sec-fetch-site'];
-  if (site && !['same-origin', 'none'].includes(site)) return sendJson(res, 403, { error: 'Origen no permitido' });
+  if (site && !['same-origin', 'none'].includes(site)) { logSuspicious(req, 'cross-site'); return sendJson(res, 403, { error: 'Origen no permitido' }); }
   if (rateLimited(req)) { res.setHeader('Retry-After', '60'); return sendJson(res, 429, { error: 'Demasiadas peticiones, espera un minuto' }); }
 
   const q = req.query || {};
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     try { return sendJson(res, 200, await stats(), 120); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
   }
   const type = asType(one(q.type));
-  if (!type) return sendJson(res, 400, { error: 'Tipo no válido' });
+  if (!type) { logSuspicious(req, 'bad-type'); return sendJson(res, 400, { error: 'Tipo no válido' }); }
 
   try {
     switch (one(q.a)) {

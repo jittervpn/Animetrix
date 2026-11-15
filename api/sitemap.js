@@ -1,11 +1,13 @@
 // /sitemap.xml — lista todas las páginas que Google debe indexar (se genera solo con el catálogo).
 import { catalogAll, title, TYPES } from '../lib/inkaflix.js';
 import { mapLimit } from '../lib/tmdb.js';
+import { rateLimited } from '../lib/http.js';
 
 const SITE = 'https://www.animetrix.lat';
 const x = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export default async function handler(req, res) {
+  if (rateLimited(req, 20)) { res.statusCode = 429; res.setHeader('Retry-After', '60'); return res.end('Too many requests'); }
   const urls = [{ loc: SITE + '/', priority: '1.0', freq: 'daily' }];
   for (const t of TYPES) {
     let items = [];
