@@ -6,4 +6,13 @@
     <string name="retry">Reintentar</string>
     <string name="exit_hint">Presiona atrás otra vez para salir</string>
     <string name="ad_blocked">Anuncio bloqueado</string>
+    <string name="ch_new">Estrenos</string>
+    <string name="ch_new_desc">Películas, series, anime y episodios nuevos</string>
+    <string name="ch_news">Avisos</string>
+    <string name="ch_news_desc">Mantenimiento y actualizaciones de la app</string>
+    <string name="update_title">Actualización disponible</string>
+    <string name="update_text">Ya está la versión %1$s de Animetrix. Toca para descargarla.</string>
+    <string name="update_dialog">Hay una versión nueva de Animetrix (%1$s). ¿Quieres descargarla ahora?</string>
+    <string name="update_now">Actualizar</string>
+    <string name="later">Más tarde</string>
 </resources>

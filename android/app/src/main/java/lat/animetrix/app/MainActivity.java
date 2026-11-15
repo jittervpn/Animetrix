@@ -1,7 +1,10 @@
 package lat.animetrix.app;
 
 import android.annotation.SuppressLint;
+import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
@@ -99,6 +102,38 @@ public class MainActivity extends Activity {
         } else {
             web.loadUrl(startUrl(getIntent()));
         }
+
+        // Notificaciones: canales, permiso (Android 13+), revisión periódica y revisión al abrir.
+        Notifier.createChannels(this);
+        Notifier.schedule(this);
+        if (Build.VERSION.SDK_INT >= 33
+            && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            && !getSharedPreferences("notify", MODE_PRIVATE).getBoolean("asked", false)) {
+            getSharedPreferences("notify", MODE_PRIVATE).edit().putBoolean("asked", true).apply();
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
+        }
+        new Thread(() -> {
+            Notifier.Result r = Notifier.check(getApplicationContext());
+            if (r.latestCode > BuildConfig.VERSION_CODE && r.updateUrl != null) runOnUiThread(() -> offerUpdate(r));
+        }, "animetrix-open-check").start();
+    }
+
+    /** Aviso dentro de la app cuando hay una versión nueva (una vez por versión). */
+    private void offerUpdate(Notifier.Result r) {
+        if (isFinishing() || isDestroyed()) return;
+        android.content.SharedPreferences p = getSharedPreferences("notify", MODE_PRIVATE);
+        if (p.getInt("update_dialog", 0) == r.latestCode) return;
+        p.edit().putInt("update_dialog", r.latestCode).apply();
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(R.string.update_title)
+            .setMessage(getString(R.string.update_dialog, r.latestName))
+            .setPositiveButton(R.string.update_now, (d, w) -> {
+                if (Notifier.isTrustedDownload(r.updateUrl)) {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(r.updateUrl)));
+                }
+            })
+            .setNegativeButton(R.string.later, null)
+            .show();
     }
 
     @Override

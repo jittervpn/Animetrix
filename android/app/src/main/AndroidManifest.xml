@@ -4,6 +4,10 @@
     <!-- Solo internet. Sin cámara, micrófono, ubicación, contactos ni almacenamiento. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Notificaciones de estrenos y avisos (Android 13+ pide permiso al usuario). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Para que la revisión periódica siga funcionando después de reiniciar el teléfono. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:label="Animetrix"
@@ -42,5 +46,11 @@
                 <data android:scheme="https" android:host="www.animetrix.lat" />
             </intent-filter>
         </activity>
+
+        <!-- Revisión periódica de novedades (no se puede invocar desde otras apps). -->
+        <service
+            android:name=".CheckJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 </manifest>

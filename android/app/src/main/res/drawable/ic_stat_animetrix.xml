@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícono pequeño de notificación (silueta de la "A" con el botón de play). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="1024" android:viewportHeight="1024">
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M440,214 L584,214 L816,810 L684,810 L640,690 L384,690 L340,810 L208,810 Z M512,352 L424,594 L600,594 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M478,476 L478,552 L546,514 Z" />
+</vector>

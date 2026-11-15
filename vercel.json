@@ -70,5 +70,12 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/app",
+      "destination": "https://github.com/jittervpn/Animetrix/releases/latest/download/Animetrix.apk",
+      "permanent": false
+    }
   ]
 }

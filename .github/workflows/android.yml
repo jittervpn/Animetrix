@@ -31,19 +31,19 @@ jobs:
 
       - name: Preparar firma
         env:
-          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
         run: |
           KS="$RUNNER_TEMP/release.jks"
-          if [ -n "$KS_B64" ]; then
-            echo "$KS_B64" | base64 -d > "$KS"
+          if [ -n "$SIGNING_KEY" ]; then
+            # Clave permanente: el archivo va cifrado (AES-256) en el repo; solo el secreto lo abre.
+            printf '%s' "$SIGNING_KEY" > "$RUNNER_TEMP/k"
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in android/signing/release.jks.enc -out "$KS" -pass file:"$RUNNER_TEMP/k"
+            rm -f "$RUNNER_TEMP/k"
             {
               echo "ANDROID_KEYSTORE_PATH=$KS"
-              echo "ANDROID_KEYSTORE_PASSWORD=$KS_PASS"
-              echo "ANDROID_KEY_ALIAS=$KEY_ALIAS"
-              echo "ANDROID_KEY_PASSWORD=$KEY_PASS"
+              echo "ANDROID_KEYSTORE_PASSWORD=$SIGNING_KEY"
+              echo "ANDROID_KEY_ALIAS=animetrix"
+              echo "ANDROID_KEY_PASSWORD=$SIGNING_KEY"
               echo "SIGNING=permanente"
             } >> "$GITHUB_ENV"
           else
@@ -58,20 +58,21 @@ jobs:
               echo "ANDROID_KEY_PASSWORD=$TMP_PASS"
               echo "SIGNING=temporal"
             } >> "$GITHUB_ENV"
-            echo "::warning::Sin clave de firma permanente: el APK se firmó con una clave temporal (instalable, pero las actualizaciones pedirán desinstalar)."
+            echo "::warning::Falta el secreto ANDROID_SIGNING_KEY: el APK se firmó con una clave temporal."
           fi
 
       - name: Compilar APK
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 1.0.${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Renombrar
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk "dist/Animetrix-v1.0.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/Animetrix-v1.1.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk dist/Animetrix.apk
           sha256sum dist/*.apk | tee dist/SHA256.txt
           rm -f "$RUNNER_TEMP/release.jks"
 
@@ -82,11 +83,12 @@ jobs:
           retention-days: 30
 
       - name: Publicar en Releases
+        if: env.SIGNING == 'permanente'   # solo se publican APK con la firma oficial
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="app-v1.0.${{ github.run_number }}"
+          TAG="app-v1.1.${{ github.run_number }}"
           gh release create "$TAG" dist/*.apk dist/SHA256.txt \
-            --title "Animetrix para Android v1.0.${{ github.run_number }}" \
+            --title "Animetrix para Android v1.1.${{ github.run_number }}" \
             --notes "APK de Animetrix (firma: ${SIGNING}). Instálalo en Android 7.0 o superior." \
             --latest

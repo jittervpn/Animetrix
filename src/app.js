@@ -524,6 +524,20 @@
     el.replaceChildren(h('strong', {}, g.title + ' 👋'), h('span', {}, g.sub));
   }
 
+  /* ---------- invitación a la app (solo en la web) ---------- */
+  function appBanner() {
+    if (IN_APP || !/Android/i.test(navigator.userAgent)) return;
+    const until = Number(store.get('app_banner_until', 0)) || 0;
+    if (Date.now() < until) return;
+    const close = h('button', { class: 'resume-x', type: 'button', 'aria-label': 'Cerrar' }, svg(ICON.close));
+    const el = h('div', { class: 'app-banner', role: 'complementary' },
+      h('img', { src: '/assets/logo.svg', alt: '', width: 40, height: 40 }),
+      h('div', { class: 'app-banner-tx' }, h('strong', {}, 'Descarga la app de Animetrix'), h('span', {}, 'Sin anuncios y con avisos de estrenos')),
+      h('a', { class: 'btn primary', href: '/app' }, 'Instalar'), close);
+    close.addEventListener('click', () => { store.set('app_banner_until', Date.now() + 3 * 864e5); el.remove(); });
+    document.body.append(el);
+  }
+
   /* ---------- botón flotante "Volver al video" ---------- */
   function resumeBanner() {
     const lw = store.get('last_watch', null);
@@ -572,5 +586,6 @@
     route();
     resumeBanner();
     welcome();
+    appBanner();
   });
 })();
