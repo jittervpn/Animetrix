@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Animetrix</string>
+    <string name="offline_title">Sin conexión</string>
+    <string name="offline_text">No pudimos cargar Animetrix. Revisa tu internet y vuelve a intentar.</string>
+    <string name="retry">Reintentar</string>
+    <string name="exit_hint">Presiona atrás otra vez para salir</string>
+    <string name="ad_blocked">Anuncio bloqueado</string>
+</resources>

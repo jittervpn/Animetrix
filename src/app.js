@@ -458,8 +458,11 @@
     } catch { /* sin history API */ }
   }
 
+  const IN_APP = /AnimetrixApp\//.test(navigator.userAgent);
+  if (IN_APP) document.documentElement.classList.add('in-app');
+
   function initPlayer() {
-    adShield();
+    if (!IN_APP) adShield();
     const frame = $('#player'); if (!frame) return;
     const btn = $('#compatBtn'); const txt = $('#shieldText'); const bar = $('#playerBar');
     const sandboxValue = frame.getAttribute('sandbox');
