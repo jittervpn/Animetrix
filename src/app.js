@@ -151,7 +151,7 @@
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
     root.replaceChildren(...[
-      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}),
+      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}), telegramCard(),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
@@ -171,6 +171,14 @@
       d.runtime ? h('span', {}, fmtRuntime(d.runtime)) : null,
       ...(d.genres || []).slice(0, 3).map((g) => h('span', {}, g)),
     ].filter(Boolean);
+  }
+
+  const TELEGRAM = 'https://t.me/animetrixlat';
+  function telegramCard() {
+    return h('a', { class: 'tg-card', href: TELEGRAM, target: '_blank', rel: 'noopener' },
+      h('span', { class: 'tg-ic' }, (() => { const s = svg('M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z'); return s; })()),
+      h('span', { class: 'tg-tx' }, h('strong', {}, 'Únete a nuestro canal de Telegram'), h('span', {}, 'Estrenos, episodios nuevos y el top semanal')),
+      h('span', { class: 'btn primary tg-go' }, 'Unirme'));
   }
 
   function statsBand(counts) {
@@ -301,7 +309,8 @@
         : h('div', { class: 'empty' }, h('p', {}, 'Guarda títulos con el botón “Mi lista” y aparecerán aquí.')),
       hist.length ? h('h2', { class: 'sub-title' }, 'Vistos recientemente') : null,
       hist.length ? h('div', { class: 'grid' }, hist.map((it) => card(it, it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null))) : null,
-      hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null));
+      hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null,
+      h('div', { class: 'list-tg' }, telegramCard())));
   }
 
   /* ---------- ficha (modal) ---------- */
@@ -513,7 +522,8 @@
         h('ul', { class: 'welcome-feat' },
           feat('M6 3h12v18l-6-4-6 4z', 'Mi lista', 'Guarda lo que quieras ver después.'),
           feat('M7 4.5v15l13-7.5z', 'Seguir viendo', 'Retoma tus series en el episodio exacto.'),
-          feat('M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z', 'Lo mejor valorado', 'Rating, géneros y filtros para elegir rápido.')),
+          feat('M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z', 'Lo mejor valorado', 'Rating, géneros y filtros para elegir rápido.'),
+          feat('M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z', 'Canal de Telegram', '@animetrixlat: estrenos al instante.')),
         h('button', { class: 'btn primary lg', type: 'submit' }, 'Empezar a ver')));
     document.body.append(ov); document.body.classList.add('no-scroll');
     setTimeout(() => input.focus(), 300);

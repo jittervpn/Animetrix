@@ -21,6 +21,29 @@
         android:progressTint="@color/acc"
         android:progressBackgroundTint="@android:color/transparent" />
 
+    <!-- Pantalla de carga (se ve hasta que la primera pantalla está lista) -->
+    <LinearLayout
+        android:id="@+id/loader"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/bg"
+        android:gravity="center"
+        android:orientation="vertical">
+
+        <ImageView
+            android:layout_width="112dp"
+            android:layout_height="112dp"
+            android:src="@mipmap/ic_launcher_round"
+            android:contentDescription="@null" />
+
+        <ProgressBar
+            style="@android:style/Widget.Material.ProgressBar.Small"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginTop="28dp"
+            android:indeterminateTint="@color/acc" />
+    </LinearLayout>
+
     <!-- Pantalla sin conexión -->
     <LinearLayout
         android:id="@+id/offline"

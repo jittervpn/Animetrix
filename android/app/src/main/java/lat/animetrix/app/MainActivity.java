@@ -50,11 +50,14 @@ import java.util.Locale;
 public class MainActivity extends Activity {
 
     private static final String HOME = "https://www.animetrix.lat/";
+    private static final String TELEGRAM = "https://t.me/animetrixlat";
 
     private WebView web;
     private ProgressBar progress;
     private View offline;
     private FrameLayout root;
+    private View loader;
+    private boolean firstPageShown;
 
     private View fullscreenView;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
@@ -72,6 +75,7 @@ public class MainActivity extends Activity {
         web = findViewById(R.id.web);
         progress = findViewById(R.id.progress);
         offline = findViewById(R.id.offline);
+        loader = findViewById(R.id.loader);
         findViewById(R.id.retry).setOnClickListener(v -> retry());
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
@@ -94,6 +98,15 @@ public class MainActivity extends Activity {
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(web, true);      // el reproductor de InkaFlix las necesita
 
+        // Que se sienta como app y no como página: sin menú al mantener presionado,
+        // sin barras de desplazamiento ni efecto rebote.
+        web.setOnLongClickListener(v -> true);
+        web.setLongClickable(false);
+        web.setHapticFeedbackEnabled(false);
+        web.setVerticalScrollBarEnabled(false);
+        web.setHorizontalScrollBarEnabled(false);
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+
         web.setWebViewClient(new SafeClient());
         web.setWebChromeClient(new Chrome());
 
@@ -112,6 +125,7 @@ public class MainActivity extends Activity {
             getSharedPreferences("notify", MODE_PRIVATE).edit().putBoolean("asked", true).apply();
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
         }
+        maybeInviteTelegram();
         new Thread(() -> {
             Notifier.Result r = Notifier.check(getApplicationContext());
             if (r.latestCode > BuildConfig.VERSION_CODE && r.updateUrl != null) runOnUiThread(() -> offerUpdate(r));
@@ -158,6 +172,44 @@ public class MainActivity extends Activity {
         return "https".equalsIgnoreCase(u.getScheme()) && isOwnHost(u.getHost());
     }
 
+    private static boolean isTelegram(Uri u) {
+        String h = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
+        return "https".equalsIgnoreCase(u.getScheme()) && (h.equals("t.me") || h.equals("telegram.me") || h.equals("telegram.dog"));
+    }
+
+    /** Abre Telegram (la app si está instalada, si no el navegador). */
+    private void openExternal(Uri u) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, u).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception e) {
+            Toast.makeText(this, "No se pudo abrir el enlace", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Invitación (una sola vez, a partir de la 3ª apertura) a unirse al canal de Telegram. */
+    private void maybeInviteTelegram() {
+        android.content.SharedPreferences p = getSharedPreferences("app", MODE_PRIVATE);
+        int opens = p.getInt("opens", 0) + 1;
+        p.edit().putInt("opens", opens).apply();
+        if (opens < 3 || p.getBoolean("tg_invited", false)) return;
+        p.edit().putBoolean("tg_invited", true).apply();
+        web.postDelayed(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle(R.string.tg_title)
+                .setMessage(R.string.tg_text)
+                .setPositiveButton(R.string.tg_join, (d, w) -> openExternal(Uri.parse(TELEGRAM)))
+                .setNegativeButton(R.string.not_now, null)
+                .show();
+        }, 4000);
+    }
+
+    private void hideLoader() {
+        if (firstPageShown) return;
+        firstPageShown = true;
+        loader.animate().alpha(0f).setDuration(220).withEndAction(() -> loader.setVisibility(View.GONE)).start();
+    }
+
     private void adBlockedToast() {
         long now = System.currentTimeMillis();
         if (now - lastAdToast > 4000) {
@@ -193,8 +245,10 @@ public class MainActivity extends Activity {
                 if (!scheme.equals("https") && !scheme.equals("about") && !scheme.equals("blob") && !scheme.equals("data")) return true;
                 return AdBlocker.isAd(u.getHost());
             }
-            // Ventana principal: solo animetrix.lat por HTTPS. Todo lo demás es un anuncio o redirección → bloqueado.
+            // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
+            // Todo lo demás es un anuncio o redirección → bloqueado.
             if (isOwnHttps(u)) return false;
+            if (isTelegram(u) && req.hasGesture()) { openExternal(u); return true; }
             adBlockedToast();
             return true;
         }
@@ -212,8 +266,13 @@ public class MainActivity extends Activity {
         }
 
         @Override
+        public void onPageFinished(WebView view, String url) {
+            hideLoader();
+        }
+
+        @Override
         public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError error) {
-            if (req.isForMainFrame()) offline.setVisibility(View.VISIBLE);
+            if (req.isForMainFrame()) { offline.setVisibility(View.VISIBLE); hideLoader(); }
         }
 
         @Override
@@ -245,8 +304,28 @@ public class MainActivity extends Activity {
 
         @Override
         public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
-            adBlockedToast(); // ventanas emergentes = anuncios
-            return false;
+            // Enlaces "abrir en otra ventana": solo se permiten Telegram (en su app) y Animetrix (en la misma pantalla).
+            // Cualquier otra ventana emergente es un anuncio → bloqueada.
+            if (!isUserGesture) { adBlockedToast(); return false; }
+            WebView probe = new WebView(MainActivity.this);
+            probe.setWebViewClient(new WebViewClient() {
+                private boolean handled;
+                private void handle(WebView v, Uri u) {
+                    if (handled) return;
+                    handled = true;
+                    if (isTelegram(u)) openExternal(u);
+                    else if (isOwnHttps(u)) web.loadUrl(u.toString());
+                    else adBlockedToast();
+                    v.stopLoading();
+                    v.post(v::destroy);
+                }
+                @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { handle(v, r.getUrl()); return true; }
+                @Override public void onPageStarted(WebView v, String url, Bitmap f) { handle(v, Uri.parse(url)); }
+            });
+            WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+            transport.setWebView(probe);
+            resultMsg.sendToTarget();
+            return true;
         }
 
         @Override
