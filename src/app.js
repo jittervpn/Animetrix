@@ -579,6 +579,7 @@
       h('label', {}, h('input', { type: 'radio', name: 'type', value: v, checked: i === 2 }), h('span', {}, t))));
     const year = h('input', { name: 'year', inputmode: 'numeric', maxlength: 4, placeholder: 'Año (opcional)' });
     const note = h('textarea', { name: 'note', maxlength: 200, rows: 2, placeholder: 'Comentario (opcional): temporada, idioma…' });
+    const tg = h('input', { name: 'tg', maxlength: 40, autocomplete: 'off', autocapitalize: 'none', spellcheck: 'false', placeholder: 'Tu @ de Telegram (opcional)', value: store.get('tg_user', '') || '' });
     const trap = h('input', { name: 'website', tabindex: -1, autocomplete: 'off', class: 'hp', 'aria-hidden': 'true' });
     const msg = h('p', { class: 'req-msg', role: 'alert' });
     const send = h('button', { class: 'btn primary lg', type: 'submit' }, 'Enviar pedido');
@@ -588,11 +589,15 @@
       h('p', { class: 'eyebrow' }, 'Pedidos'),
       h('h2', {}, '¿Qué quieres ver?'),
       h('p', { class: 'welcome-sub' }, 'Cuéntanos qué película, serie o anime te gustaría encontrar en Animetrix.'),
-      title, type, year, note, trap, msg, send);
+      title, type, year, note, tg,
+      h('p', { class: 'req-help' }, 'Con tu @ te avisamos por Telegram cuando lo agreguemos.'),
+      trap, msg, send);
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(f);
-      const body = { title: String(fd.get('title') || '').trim(), type: fd.get('type'), year: String(fd.get('year') || '').trim(), note: String(fd.get('note') || '').trim(), name: userName(), website: fd.get('website') || '' };
+      const tgv = String(fd.get('tg') || '').trim().replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '');
+      const body = { title: String(fd.get('title') || '').trim(), type: fd.get('type'), year: String(fd.get('year') || '').trim(), note: String(fd.get('note') || '').trim(), name: userName(), tg: tgv, website: fd.get('website') || '' };
+      if (tgv && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(tgv)) { msg.textContent = 'Revisa tu usuario de Telegram (ej: @animetrixlat).'; tg.focus(); return; }
       if (body.title.length < 2) { msg.textContent = 'Escribe el nombre del título.'; title.focus(); return; }
       if (body.year && !/^\d{4}$/.test(body.year)) { msg.textContent = 'El año debe tener 4 números.'; year.focus(); return; }
       send.disabled = true; send.textContent = 'Enviando…'; msg.textContent = '';
@@ -600,6 +605,7 @@
         const r = await fetch('/api/pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || 'No se pudo enviar');
+        store.set('tg_user', tgv ? '@' + tgv : '');
         f.replaceChildren(h('div', { class: 'req-ok' }, h('span', {}, '✅'), h('h2', {}, '¡Pedido enviado!'),
           h('p', { class: 'welcome-sub' }, 'Gracias. Si lo agregamos, te llegará una notificación y lo publicaremos en el canal.'),
           h('button', { class: 'btn primary lg', type: 'button', onclick: close }, 'Listo')));

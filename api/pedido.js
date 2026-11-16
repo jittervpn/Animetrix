@@ -50,6 +50,9 @@ export default async function handler(req, res) {
   const year = /^\d{4}$/.test(String(b.year || '')) && +b.year >= 1900 && +b.year <= 2100 ? String(b.year) : '';
   const note = asText(b.note, 200) || '';
   const name = asText(b.name, 24) || '';
+  const tgRaw = typeof b.tg === 'string' ? b.tg.trim().replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '') : '';
+  if (tgRaw && !/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(tgRaw)) return sendJson(res, 400, { error: 'El usuario de Telegram no es válido (ej: @animetrixlat)' });
+  const tg = tgRaw;
   if (!title || title.length < 2) return sendJson(res, 400, { error: 'Escribe el nombre del título' });
   if (!type) return sendJson(res, 400, { error: 'Elige si es película, serie o anime' });
   if (limited(ip)) { logSuspicious(req, 'pedido-rate-limit'); res.setHeader('Retry-After', '600'); return sendJson(res, 429, { error: 'Ya enviaste varios pedidos. Prueba en unos minutos.' }); }
@@ -61,7 +64,9 @@ export default async function handler(req, res) {
   if (!token || !chat) return sendJson(res, 503, { error: 'Los pedidos no están disponibles por ahora' });
 
   const text = `<b>📥 Nuevo pedido</b>\n\n${TYPES[type]}: <b>${esc(title)}</b>${year ? ` (${year})` : ''}`
-    + (note ? `\n💬 ${esc(note)}` : '') + (name ? `\n👤 ${esc(name)}` : '') + `\n📱 Desde la ${via}`;
+    + (note ? `\n💬 ${esc(note)}` : '')
+    + (tg ? `\n✈️ Telegram: <a href="https://t.me/${tg}">@${tg}</a>` : '\n✈️ Telegram: no lo indicó')
+    + (name ? `\n👤 Nombre: ${esc(name)}` : '') + `\n📱 Desde la ${via}`;
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

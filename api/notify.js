@@ -45,5 +45,5 @@ export default async function handler(req, res) {
     ? { id: asText(a.id, 60) || 'aviso', title: asText(a.titulo, 80) || 'Animetrix', body: asText(a.mensaje, 240) || '' }
     : null;
 
-  return sendJson(res, 200, { v: 1, app: await latestApp(), notice, items }, 300);
+  return sendJson(res, 200, { v: 1, app: await latestApp(), notice, items }, 120);
 }
