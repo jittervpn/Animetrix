@@ -509,3 +509,7 @@ a.stat:hover { background: #151927; }
 .req-ok { display: grid; gap: 12px; text-align: center; justify-items: center; padding: 10px 0; }
 .req-ok > span { font-size: 44px; }
 .hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; opacity: 0; }
+
+.nav .nav-req { color: var(--acc); }
+.foot-links a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.foot-links a:hover { color: var(--acc); }

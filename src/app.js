@@ -423,7 +423,7 @@
         view = 'home'; await viewHome(); toast('Todavía no empezaste nada. ¡Elige algo para ver!');
       }
       else if (parts[0] === 'buscar' && !parts[1]) { nav = ''; view = 'home'; await viewHome(); setTimeout(() => $('#q')?.focus(), 200); }
-      else if (parts[0] === 'pedir') { view = 'home'; await viewHome(); openRequest(); }
+      else if (parts[0] === 'pedir') { nav = 'pedir'; view = 'home'; await viewHome(); openRequest(); }
       else { view = 'home'; await viewHome(); }
     } catch (e) { app().replaceChildren(errorBox(e.message, () => render(hash))); }
     $$('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === nav));
