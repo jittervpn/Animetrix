@@ -41,3 +41,8 @@ android {
     buildFeatures { buildConfig true }
     lint { abortOnError false }
 }
+
+dependencies {
+    // Permite ajustar el video dentro del reproductor (pantalla completa sin franjas negras).
+    implementation 'androidx.webkit:webkit:1.12.1'
+}

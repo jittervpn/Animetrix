@@ -26,4 +26,7 @@
     <string name="sc_request">Pedir</string>
     <string name="sc_request_long">Pedir una película o anime</string>
     <string name="share_via">Compartir con…</string>
+    <string name="fit_cover">Pantalla completa</string>
+    <string name="fit_contain">Video completo</string>
+    <string name="fit_hint">Pellizca la pantalla para ver el video completo o ampliado</string>
 </resources>

@@ -62,6 +62,7 @@ public class MainActivity extends Activity {
     private boolean firstPageShown;
 
     private View fullscreenView;
+    private VideoFit.Holder fullscreenHolder;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
 
     private long lastBackPress;
@@ -128,6 +129,7 @@ public class MainActivity extends Activity {
         web.setHorizontalScrollBarEnabled(false);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
+        VideoFit.install(web);
         web.setWebViewClient(new SafeClient());
         web.setWebChromeClient(new Chrome());
 
@@ -398,7 +400,16 @@ public class MainActivity extends Activity {
             if (fullscreenView != null) { callback.onCustomViewHidden(); return; }
             fullscreenView = view;
             fullscreenCallback = callback;
-            root.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            fullscreenHolder = new VideoFit.Holder(MainActivity.this, zoomIn -> setFit(zoomIn ? VideoFit.COVER : VideoFit.CONTAIN, true));
+            fullscreenHolder.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            root.addView(fullscreenHolder, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            setCutoutMode(true);
+            setFit(getSharedPreferences("app", MODE_PRIVATE).getString("video_fit", VideoFit.COVER), false);
+            android.content.SharedPreferences ap = getSharedPreferences("app", MODE_PRIVATE);
+            if (!ap.getBoolean("fit_hint", false)) {
+                ap.edit().putBoolean("fit_hint", true).apply();
+                Toast.makeText(MainActivity.this, R.string.fit_hint, Toast.LENGTH_LONG).show();
+            }
             web.setVisibility(View.GONE);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -415,8 +426,11 @@ public class MainActivity extends Activity {
 
     private void exitFullscreen() {
         if (fullscreenView == null) return;
-        root.removeView(fullscreenView);
+        if (fullscreenHolder != null) { fullscreenHolder.removeAllViews(); root.removeView(fullscreenHolder); fullscreenHolder = null; }
+        else root.removeView(fullscreenView);
         fullscreenView = null;
+        setCutoutMode(false);
+        VideoFit.apply(web, VideoFit.CONTAIN);
         web.setVisibility(View.VISIBLE);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -424,6 +438,24 @@ public class MainActivity extends Activity {
         setFullscreenBars(false);
         root.requestApplyInsets();
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
+    }
+
+    /** Modo del video en pantalla completa: llenar (cover) o completo (contain). */
+    private void setFit(String mode, boolean announce) {
+        getSharedPreferences("app", MODE_PRIVATE).edit().putString("video_fit", mode).apply();
+        VideoFit.apply(web, mode);
+        if (announce) Toast.makeText(this, VideoFit.COVER.equals(mode) ? R.string.fit_cover : R.string.fit_contain, Toast.LENGTH_SHORT).show();
+    }
+
+    /** En pantalla completa el video usa también la zona del notch / cámara. */
+    private void setCutoutMode(boolean fullscreen) {
+        if (Build.VERSION.SDK_INT < 28) return;
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.layoutInDisplayCutoutMode = fullscreen
+            ? (Build.VERSION.SDK_INT >= 30 ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                                           : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES)
+            : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+        getWindow().setAttributes(lp);
     }
 
     @SuppressWarnings("deprecation")
