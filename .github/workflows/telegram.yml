@@ -1,9 +1,8 @@
 name: Canal de Telegram (publicación automática)
 
 on:
-  schedule:
-    - cron: '*/10 * * * *'   # revisa novedades cada 10 minutos
-    - cron: '0 0 * * 1'      # resumen semanal: domingo 21:00 (Argentina)
+  # La publicación automática ahora la hace Vercel (/api/cron-telegram, activado por cron-job.org).
+  # Este flujo queda solo para uso manual.
   workflow_dispatch:
     inputs:
       mode:

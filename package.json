@@ -2,12 +2,20 @@
   "name": "animetrix",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "INKAFLIX_DEMO=1 node scripts/dev-server.js",
     "assets": "node scripts/build.js"
   },
   "devDependencies": {
     "esbuild": "0.28.2"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.9.0"
+  },
+  "overrides": {
+    "zod": "^4.6.6"
   }
 }
