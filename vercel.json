@@ -24,6 +24,10 @@
     {
       "source": "/abrir",
       "destination": "/api/abrir"
+    },
+    {
+      "source": "/compartir",
+      "destination": "/api/compartir"
     }
   ],
   "headers": [

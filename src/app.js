@@ -151,7 +151,7 @@
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
     root.replaceChildren(...[
-      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}), telegramCard(),
+      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}), telegramCard(), h('div', { class: 'req-wrap' }, requestCard()),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
@@ -297,7 +297,7 @@
     const sec = h('section', { class: 'page' }, title(),
       h('p', { class: 'page-count' }, h('strong', {}, String(items.length)), items.length === 1 ? ' resultado' : ' resultados'));
     sec.append(items.length ? h('div', { class: 'grid' }, items.map((it) => card(it)))
-      : h('div', { class: 'empty' }, h('p', {}, 'No encontramos nada con ese nombre. Prueba con otra palabra, un año o un género.')));
+      : h('div', { class: 'empty' }, h('p', {}, 'No encontramos nada con ese nombre. Prueba con otra palabra, un año o un género.'), requestCard(q)));
     root.replaceChildren(sec);
   }
 
@@ -310,7 +310,7 @@
       hist.length ? h('h2', { class: 'sub-title' }, 'Vistos recientemente') : null,
       hist.length ? h('div', { class: 'grid' }, hist.map((it) => card(it, it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null))) : null,
       hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null,
-      h('div', { class: 'list-tg' }, telegramCard())));
+      h('div', { class: 'list-tg' }, telegramCard(), requestCard())));
   }
 
   /* ---------- ficha (modal) ---------- */
@@ -350,7 +350,7 @@
           h('div', { class: 'meta' }, ...metaChips({ ...d, genres: [] })),
           d.genres?.length ? h('div', { class: 'tags' }, d.genres.map((g) => h('a', { href: '#/buscar/' + encodeURIComponent(g) }, g))) : null,
           d.overview ? h('p', { class: 'overview' }, d.overview) : null,
-          h('div', { class: 'actions' }, h('a', { class: 'btn primary lg', href: playHref }, svg(ICON.play), playLabel), fav))),
+          h('div', { class: 'actions' }, h('a', { class: 'btn primary lg', href: playHref }, svg(ICON.play), playLabel), fav, shareBtn(d)))),
       d.type !== 'movie' ? seasonsBlock(d, resume) : null].filter(Boolean));
     const ph = cardEl.querySelector('.poster-ph'); if (ph) ph.style.setProperty('--h', ph.dataset.hue);
     document.title = d.title + ' · Animetrix';
@@ -415,6 +415,15 @@
       else if (SLUG[parts[0]]) { nav = SLUG[parts[0]]; view = 'grid:' + nav; await viewGrid(nav); }
       else if (parts[0] === 'buscar' && parts[1]) { nav = ''; const q = parts.slice(1).join('/').slice(0, 60); view = 'search:' + q; $('#q').value = q; await viewSearch(q); }
       else if (parts[0] === 'mi-lista') { nav = 'list'; view = 'list'; viewList(); }
+      else if (parts[0] === 'seguir') {
+        const lw = store.get('last_watch', null);
+        const last = seen.all()[0];
+        if (lw && /^\/ver\?[\w=&%.-]+$/.test(lw.url || '')) { location.replace(lw.url); return; }
+        if (last) { location.replace(watchUrl(last, last.se, last.ep)); return; }
+        view = 'home'; await viewHome(); toast('Todavía no empezaste nada. ¡Elige algo para ver!');
+      }
+      else if (parts[0] === 'buscar' && !parts[1]) { nav = ''; view = 'home'; await viewHome(); setTimeout(() => $('#q')?.focus(), 200); }
+      else if (parts[0] === 'pedir') { view = 'home'; await viewHome(); openRequest(); }
       else { view = 'home'; await viewHome(); }
     } catch (e) { app().replaceChildren(errorBox(e.message, () => render(hash))); }
     $$('[data-nav]').forEach((a) => a.classList.toggle('on', a.dataset.nav === nav));
@@ -437,6 +446,7 @@
       b.addEventListener('click', () => { favs.toggle(w); paint(); }); paint();
     }
     const eps = $('.episodes'); if (eps) bindSeasonTabs(eps);
+    $('#shareBtn')?.addEventListener('click', () => share(w));
     initPlayer();
     const cur = $('.ep-list a[aria-current]');
     const list = cur?.closest('.ep-list');
@@ -533,6 +543,79 @@
     const g = greeting();
     el.replaceChildren(h('strong', {}, g.title + ' 👋'), h('span', {}, g.sub));
   }
+
+  /* ---------- aviso breve (toast) ---------- */
+  function toast(msg) {
+    $('.toast')?.remove();
+    const el = h('div', { class: 'toast', role: 'status' }, msg);
+    document.body.append(el);
+    setTimeout(() => el.classList.add('out'), 2400);
+    setTimeout(() => el.remove(), 2800);
+  }
+
+  /* ---------- compartir ---------- */
+  async function share(it) {
+    const link = 'https://www.animetrix.lat/abrir?t=' + it.type + '&id=' + it.tmdb;
+    if (IN_APP) {   // la app intercepta /compartir y abre el menú nativo de Android
+      location.href = '/compartir?' + new URLSearchParams({ t: it.type, id: it.tmdb, title: String(it.title || '').slice(0, 100) });
+      return;
+    }
+    const text = 'Mira ' + it.title + ' en Animetrix 🎬';
+    try {
+      if (navigator.share) { await navigator.share({ title: it.title, text, url: link }); return; }
+      await navigator.clipboard.writeText(text + ' ' + link);
+      toast('Enlace copiado. ¡Pégalo donde quieras!');
+    } catch { /* el usuario canceló */ }
+  }
+  const shareBtn = (it) => h('button', { class: 'btn glass', type: 'button', 'aria-label': 'Compartir', onclick: () => share(it) },
+    svg('M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13'), 'Compartir');
+
+  /* ---------- pedidos ---------- */
+  function openRequest(prefill = '') {
+    if ($('.req')) return;
+    const f = h('form', { class: 'welcome-card req-card', novalidate: true });
+    const title = h('input', { name: 'title', maxlength: 80, required: true, placeholder: 'Ej: Jujutsu Kaisen', value: prefill, autocomplete: 'off' });
+    const type = h('div', { class: 'req-types', role: 'radiogroup' }, [['movie', '🎬 Película'], ['serie', '📺 Serie'], ['anime', '⭐ Anime']].map(([v, t], i) =>
+      h('label', {}, h('input', { type: 'radio', name: 'type', value: v, checked: i === 2 }), h('span', {}, t))));
+    const year = h('input', { name: 'year', inputmode: 'numeric', maxlength: 4, placeholder: 'Año (opcional)' });
+    const note = h('textarea', { name: 'note', maxlength: 200, rows: 2, placeholder: 'Comentario (opcional): temporada, idioma…' });
+    const trap = h('input', { name: 'website', tabindex: -1, autocomplete: 'off', class: 'hp', 'aria-hidden': 'true' });
+    const msg = h('p', { class: 'req-msg', role: 'alert' });
+    const send = h('button', { class: 'btn primary lg', type: 'submit' }, 'Enviar pedido');
+    const close = () => { ov.remove(); document.body.classList.remove('no-scroll'); if (location.hash === '#/pedir') history.replaceState(null, '', '#/'); };
+    f.append(
+      h('button', { class: 'm-close', type: 'button', 'aria-label': 'Cerrar', onclick: close }, svg(ICON.close)),
+      h('p', { class: 'eyebrow' }, 'Pedidos'),
+      h('h2', {}, '¿Qué quieres ver?'),
+      h('p', { class: 'welcome-sub' }, 'Cuéntanos qué película, serie o anime te gustaría encontrar en Animetrix.'),
+      title, type, year, note, trap, msg, send);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(f);
+      const body = { title: String(fd.get('title') || '').trim(), type: fd.get('type'), year: String(fd.get('year') || '').trim(), note: String(fd.get('note') || '').trim(), name: userName(), website: fd.get('website') || '' };
+      if (body.title.length < 2) { msg.textContent = 'Escribe el nombre del título.'; title.focus(); return; }
+      if (body.year && !/^\d{4}$/.test(body.year)) { msg.textContent = 'El año debe tener 4 números.'; year.focus(); return; }
+      send.disabled = true; send.textContent = 'Enviando…'; msg.textContent = '';
+      try {
+        const r = await fetch('/api/pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'same-origin' });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || 'No se pudo enviar');
+        f.replaceChildren(h('div', { class: 'req-ok' }, h('span', {}, '✅'), h('h2', {}, '¡Pedido enviado!'),
+          h('p', { class: 'welcome-sub' }, 'Gracias. Si lo agregamos, te llegará una notificación y lo publicaremos en el canal.'),
+          h('button', { class: 'btn primary lg', type: 'button', onclick: close }, 'Listo')));
+      } catch (err) {
+        msg.textContent = err.message; send.disabled = false; send.textContent = 'Enviar pedido';
+      }
+    });
+    const ov = h('div', { class: 'welcome req', role: 'dialog', 'aria-modal': 'true' }, f);
+    ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
+    document.body.append(ov); document.body.classList.add('no-scroll');
+    setTimeout(() => title.focus(), 250);
+  }
+  const requestCard = (q = '') => h('button', { class: 'req-cta', type: 'button', onclick: () => openRequest(q) },
+    h('span', { class: 'req-ic' }, '📥'),
+    h('span', { class: 'tg-tx' }, h('strong', {}, q ? 'Pedir “' + q + '”' : '¿No encuentras lo que buscas?'), h('span', {}, 'Pídelo y lo buscamos para agregarlo')),
+    h('span', { class: 'btn ghost' }, 'Pedir'));
 
   /* ---------- invitación a la app (solo en la web) ---------- */
   function appBanner() {

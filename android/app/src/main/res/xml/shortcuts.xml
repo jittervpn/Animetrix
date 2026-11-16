@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Atajos al mantener presionado el ícono de Animetrix. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="seguir" android:enabled="true" android:icon="@drawable/ic_sc_continue"
+        android:shortcutShortLabel="@string/sc_continue" android:shortcutLongLabel="@string/sc_continue_long">
+        <intent android:action="android.intent.action.VIEW" android:data="https://www.animetrix.lat/#/seguir"
+            android:targetPackage="lat.animetrix.app" android:targetClass="lat.animetrix.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="lista" android:enabled="true" android:icon="@drawable/ic_sc_list"
+        android:shortcutShortLabel="@string/sc_list" android:shortcutLongLabel="@string/sc_list">
+        <intent android:action="android.intent.action.VIEW" android:data="https://www.animetrix.lat/#/mi-lista"
+            android:targetPackage="lat.animetrix.app" android:targetClass="lat.animetrix.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="buscar" android:enabled="true" android:icon="@drawable/ic_sc_search"
+        android:shortcutShortLabel="@string/sc_search" android:shortcutLongLabel="@string/sc_search">
+        <intent android:action="android.intent.action.VIEW" android:data="https://www.animetrix.lat/#/buscar"
+            android:targetPackage="lat.animetrix.app" android:targetClass="lat.animetrix.app.MainActivity" />
+    </shortcut>
+    <shortcut android:shortcutId="pedir" android:enabled="true" android:icon="@drawable/ic_sc_request"
+        android:shortcutShortLabel="@string/sc_request" android:shortcutLongLabel="@string/sc_request_long">
+        <intent android:action="android.intent.action.VIEW" android:data="https://www.animetrix.lat/#/pedir"
+            android:targetPackage="lat.animetrix.app" android:targetClass="lat.animetrix.app.MainActivity" />
+    </shortcut>
+</shortcuts>

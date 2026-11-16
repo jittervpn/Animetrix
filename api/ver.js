@@ -113,7 +113,10 @@ export default async function handler(req, res) {
         <h1>${esc(name)}${epLabel ? ` <span class="ep-tag">${epLabel}</span>` : ''}</h1>
         ${meta}
       </div>
-      <button class="btn ghost" type="button" id="favBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Mi lista</span></button>
+<div class="watch-actions">
+            <button class="btn ghost" type="button" id="favBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Mi lista</span></button>
+      <button class="btn ghost" type="button" id="shareBtn" aria-label="Compartir"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span>Compartir</span></button>
+      </div>
     </div>
     ${type !== 'movie' ? `<div class="ep-nav">
       ${prev ? `<a class="btn ghost" href="${esc(link(prev))}">‹ Anterior</a>` : ''}

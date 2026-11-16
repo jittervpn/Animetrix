@@ -65,13 +65,13 @@ jobs:
         working-directory: android
         env:
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 1.1.${{ github.run_number }}
+          VERSION_NAME: 1.2.${{ github.run_number }}
         run: gradle assembleRelease --no-daemon --stacktrace
 
       - name: Renombrar
         run: |
           mkdir -p dist
-          cp android/app/build/outputs/apk/release/app-release.apk "dist/Animetrix-v1.1.${{ github.run_number }}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "dist/Animetrix-v1.2.${{ github.run_number }}.apk"
           cp android/app/build/outputs/apk/release/app-release.apk dist/Animetrix.apk
           sha256sum dist/*.apk | tee dist/SHA256.txt
           rm -f "$RUNNER_TEMP/release.jks"
@@ -87,8 +87,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="app-v1.1.${{ github.run_number }}"
+          TAG="app-v1.2.${{ github.run_number }}"
           gh release create "$TAG" dist/*.apk dist/SHA256.txt \
-            --title "Animetrix para Android v1.1.${{ github.run_number }}" \
+            --title "Animetrix para Android v1.2.${{ github.run_number }}" \
             --notes "APK de Animetrix (firma: ${SIGNING}). Instálalo en Android 7.0 o superior." \
             --latest

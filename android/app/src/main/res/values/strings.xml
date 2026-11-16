@@ -19,4 +19,11 @@
     <string name="tg_text">Sigue a Animetrix en Telegram y entérate primero de los estrenos, episodios nuevos y el top de la semana.</string>
     <string name="tg_join">Unirme</string>
     <string name="not_now">Ahora no</string>
+    <string name="sc_continue">Seguir viendo</string>
+    <string name="sc_continue_long">Seguir viendo donde lo dejé</string>
+    <string name="sc_list">Mi lista</string>
+    <string name="sc_search">Buscar</string>
+    <string name="sc_request">Pedir</string>
+    <string name="sc_request_long">Pedir una película o anime</string>
+    <string name="share_via">Compartir con…</string>
 </resources>

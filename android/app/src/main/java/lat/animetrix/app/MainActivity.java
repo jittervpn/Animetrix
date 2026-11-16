@@ -4,6 +4,8 @@ import android.annotation.SuppressLint;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.PictureInPictureParams;
+import android.util.Rational;
 import android.content.pm.PackageManager;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -204,6 +206,39 @@ public class MainActivity extends Activity {
         }, 4000);
     }
 
+    /** Menú nativo "Compartir" de Android con el enlace que abre la app (o la web si no la tienen). */
+    private void shareTitle(Uri u) {
+        String t = u.getQueryParameter("t");
+        String id = u.getQueryParameter("id");
+        String title = u.getQueryParameter("title");
+        if (t == null || !t.matches("movie|serie|anime") || id == null || !id.matches("\\d{1,9}")) return;
+        if (title == null) title = "Animetrix";
+        title = title.length() > 100 ? title.substring(0, 100) : title;
+        String link = "https://www.animetrix.lat/abrir?t=" + t + "&id=" + id;
+        String text = "🎬 Mira " + title + " en Animetrix\n" + link + "\n\n📲 Descarga la app: https://www.animetrix.lat/app";
+        Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_SUBJECT, title)
+            .putExtra(Intent.EXTRA_TEXT, text);
+        startActivity(Intent.createChooser(send, getString(R.string.share_via)));
+    }
+
+    /* ---------------------------------------------- imagen en imagen (PiP) */
+
+    private PictureInPictureParams pipParams(boolean auto) {
+        PictureInPictureParams.Builder b = new PictureInPictureParams.Builder().setAspectRatio(new Rational(16, 9));
+        if (Build.VERSION.SDK_INT >= 31) b.setAutoEnterEnabled(auto).setSeamlessResizeEnabled(true);
+        return b.build();
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Si está viendo un video en pantalla completa y sale de la app, sigue en una ventanita flotante.
+        if (fullscreenView != null && Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 31) {
+            try { enterPictureInPictureMode(pipParams(false)); } catch (Exception ignored) {}
+        }
+    }
+
     private void hideLoader() {
         if (firstPageShown) return;
         firstPageShown = true;
@@ -247,6 +282,7 @@ public class MainActivity extends Activity {
             }
             // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
             // Todo lo demás es un anuncio o redirección → bloqueado.
+            if (isOwnHttps(u) && "/compartir".equals(u.getPath())) { shareTitle(u); return true; }
             if (isOwnHttps(u)) return false;
             if (isTelegram(u) && req.hasGesture()) { openExternal(u); return true; }
             adBlockedToast();
@@ -347,6 +383,7 @@ public class MainActivity extends Activity {
             web.setVisibility(View.GONE);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(true));
             setFullscreenBars(true);
         }
 
@@ -363,6 +400,7 @@ public class MainActivity extends Activity {
         web.setVisibility(View.VISIBLE);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(false));
         setFullscreenBars(false);
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
     }
@@ -405,7 +443,12 @@ public class MainActivity extends Activity {
         web.saveState(outState);
     }
 
-    @Override protected void onPause() { super.onPause(); web.onPause(); CookieManager.getInstance().flush(); }
+    @Override protected void onPause() {
+        super.onPause();
+        boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
+        if (!pip) web.onPause();   // en imagen en imagen el video sigue reproduciéndose
+        CookieManager.getInstance().flush();
+    }
     @Override protected void onResume() { super.onResume(); web.onResume(); }
 
     @Override

@@ -480,3 +480,32 @@ a.stat:hover { background: #151927; }
 .in-app body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 .in-app .brand { pointer-events: none; }
 .in-app .card:active .card-img, .in-app .btn:active, .in-app .tabbar a:active { transform: scale(.96); transition: transform .08s; }
+
+/* ---------- compartir / pedidos / toast ---------- */
+.watch-actions { display: flex; gap: 8px; }
+@media (max-width: 640px) { .watch-actions { width: 100%; } .watch-actions .btn { flex: 1; } }
+.toast { position: fixed; z-index: 95; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  padding: 10px 16px; border-radius: 12px; background: var(--text); color: var(--bg); font-weight: 800; font-size: 14px;
+  box-shadow: 0 12px 30px -10px #000; animation: rise .25s ease both; transition: opacity .3s; max-width: calc(100% - 32px); }
+.toast.out { opacity: 0; }
+.req-wrap { margin: -14px var(--pad) 30px; }
+.req-cta { display: flex; width: 100%; align-items: center; gap: 12px; padding: 14px; border-radius: 16px; cursor: pointer; text-align: left;
+  background: var(--bg-2); border: 1px dashed var(--line); color: inherit; }
+.req-cta:hover { border-color: var(--muted); }
+.req-ic { flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--panel); font-size: 20px; }
+.empty .req-cta, .list-tg .req-cta { max-width: 520px; margin: 20px auto 0; }
+.req-card { position: relative; }
+.req-card .m-close { top: 12px; right: 12px; }
+.req-card textarea { padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font: 600 15px var(--body); resize: none; outline: none; color: var(--text); }
+.req-card textarea:focus { border-color: var(--acc); }
+.req-card input[name=year] { width: 160px; }
+.req-types { display: flex; gap: 8px; flex-wrap: wrap; }
+.req-types label { cursor: pointer; }
+.req-types input { position: absolute; opacity: 0; pointer-events: none; }
+.req-types span { display: inline-block; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); font-weight: 800; font-size: 13.5px; }
+.req-types input:checked + span { background: var(--acc); color: var(--acc-ink); border-color: var(--acc); }
+.req-types input:focus-visible + span { outline: 2px solid var(--acc); outline-offset: 2px; }
+.req-msg { margin: 0; min-height: 1em; color: #ff8a7a; font-weight: 700; font-size: 13.5px; }
+.req-ok { display: grid; gap: 12px; text-align: center; justify-items: center; padding: 10px 0; }
+.req-ok > span { font-size: 44px; }
+.hp { position: absolute !important; left: -9999px !important; width: 1px; height: 1px; opacity: 0; }
