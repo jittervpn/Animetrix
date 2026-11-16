@@ -38,12 +38,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- Abrir enlaces de animetrix.lat directamente en la app. -->
-            <intent-filter android:autoVerify="false">
+            <!-- Enlaces verificados (App Links): www.animetrix.lat se abre directo en la app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.animetrix.lat" />
+            </intent-filter>
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="animetrix.lat" />
-                <data android:scheme="https" android:host="www.animetrix.lat" />
             </intent-filter>
         </activity>
 

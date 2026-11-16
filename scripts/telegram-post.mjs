@@ -47,7 +47,7 @@ async function tg(method, body) {
 }
 
 function watchUrl(type, id) {
-  return type === 'movie' ? `${SITE}/ver?t=movie&id=${id}` : `${SITE}/#/titulo/${type}/${id}`;
+  return `${SITE}/abrir?t=${type}&id=${id}`; // abre la app si está instalada; si no, la web
 }
 
 function buttons(type, id) {
