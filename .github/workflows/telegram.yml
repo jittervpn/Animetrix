@@ -1,0 +1,53 @@
+name: Canal de Telegram (publicación automática)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # revisa novedades cada 30 minutos
+    - cron: '0 0 * * 1'      # resumen semanal: domingo 21:00 (Argentina)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'check = novedades · intro = estrenar el canal · weekly = resumen semanal'
+        default: check
+        type: choice
+        options: [check, intro, weekly]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # El estado (qué ya se publicó) se guarda en la caché de Actions, no en el repositorio.
+      - name: Recuperar estado
+        uses: actions/cache/restore@v4
+        with:
+          path: .telegram
+          key: telegram-state-${{ github.run_id }}
+          restore-keys: telegram-state-
+
+      - name: Publicar
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: '@animetrixlat'
+          MODE: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 0 * * 1' && 'weekly' || 'check') || inputs.mode }}
+        run: node scripts/telegram-post.mjs
+
+      - name: Guardar estado
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .telegram
+          key: telegram-state-${{ github.run_id }}
