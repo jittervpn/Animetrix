@@ -82,6 +82,23 @@ public class MainActivity extends Activity {
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
 
+        // Android 15 dibuja la app debajo de la barra de estado y la de navegación (edge-to-edge).
+        // Se reserva ese espacio para que nada quede tapado, en todos los Android.
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int l, t, r, b;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.graphics.Insets in = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                android.graphics.Insets ime = insets.getInsets(WindowInsets.Type.ime());
+                l = in.left; t = in.top; r = in.right; b = Math.max(in.bottom, ime.bottom);
+            } else {
+                l = insets.getSystemWindowInsetLeft(); t = insets.getSystemWindowInsetTop();
+                r = insets.getSystemWindowInsetRight(); b = insets.getSystemWindowInsetBottom();
+            }
+            if (fullscreenView != null) { l = t = r = b = 0; }   // video en pantalla completa: sin márgenes
+            v.setPadding(l, t, r, b);
+            return insets;
+        });
+
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);                       // "Mi lista" y "Seguir viendo"
@@ -93,6 +110,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptCanOpenWindowsAutomatically(false);
         s.setGeolocationEnabled(false);
         s.setSupportZoom(false);
+        // El tamaño de letra del sistema descuadraba el diseño en celulares con letra grande.
+        s.setTextZoom(100);
         s.setUserAgentString(s.getUserAgentString() + " AnimetrixApp/" + BuildConfig.VERSION_NAME);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) s.setSafeBrowsingEnabled(true);
 
@@ -385,6 +404,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(true));
             setFullscreenBars(true);
+            root.requestApplyInsets();
         }
 
         @Override
@@ -402,6 +422,7 @@ public class MainActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(false));
         setFullscreenBars(false);
+        root.requestApplyInsets();
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
     }
 
