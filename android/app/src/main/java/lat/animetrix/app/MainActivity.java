@@ -404,7 +404,12 @@ public class MainActivity extends Activity {
             fullscreenHolder.addView(view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             root.addView(fullscreenHolder, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             setCutoutMode(true);
-            setFit(getSharedPreferences("app", MODE_PRIVATE).getString("video_fit", VideoFit.COVER), false);
+            fullscreenHolder.addPill(() -> setFit(VideoFit.COVER.equals(currentFit()) ? VideoFit.CONTAIN : VideoFit.COVER, false));
+            setFit(currentFit(), false);
+            fullscreenHolder.showPill();
+            // El reproductor reacomoda el video al entrar en pantalla completa: se vuelve a aplicar.
+            web.postDelayed(() -> { if (fullscreenView != null) VideoFit.apply(web, currentFit()); }, 500);
+            web.postDelayed(() -> { if (fullscreenView != null) VideoFit.apply(web, currentFit()); }, 1500);
             android.content.SharedPreferences ap = getSharedPreferences("app", MODE_PRIVATE);
             if (!ap.getBoolean("fit_hint", false)) {
                 ap.edit().putBoolean("fit_hint", true).apply();
@@ -441,9 +446,14 @@ public class MainActivity extends Activity {
     }
 
     /** Modo del video en pantalla completa: llenar (cover) o completo (contain). */
+    private String currentFit() {
+        return getSharedPreferences("app", MODE_PRIVATE).getString("video_fit", VideoFit.COVER);
+    }
+
     private void setFit(String mode, boolean announce) {
         getSharedPreferences("app", MODE_PRIVATE).edit().putString("video_fit", mode).apply();
         VideoFit.apply(web, mode);
+        if (fullscreenHolder != null) fullscreenHolder.setPillText(VideoFit.COVER.equals(mode) ? "⤡  Ajustar" : "⤢  Ampliar");
         if (announce) Toast.makeText(this, VideoFit.COVER.equals(mode) ? R.string.fit_cover : R.string.fit_contain, Toast.LENGTH_SHORT).show();
     }
 
