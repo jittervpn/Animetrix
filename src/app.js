@@ -151,7 +151,7 @@
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
     root.replaceChildren(...[
-      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}), telegramCard(), h('div', { class: 'req-wrap' }, requestCard()),
+      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
@@ -171,14 +171,6 @@
       d.runtime ? h('span', {}, fmtRuntime(d.runtime)) : null,
       ...(d.genres || []).slice(0, 3).map((g) => h('span', {}, g)),
     ].filter(Boolean);
-  }
-
-  const TELEGRAM = 'https://t.me/animetrixlat';
-  function telegramCard() {
-    return h('a', { class: 'tg-card', href: TELEGRAM, target: '_blank', rel: 'noopener' },
-      h('span', { class: 'tg-ic' }, (() => { const s = svg('M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z'); return s; })()),
-      h('span', { class: 'tg-tx' }, h('strong', {}, 'Únete a nuestro canal de Telegram'), h('span', {}, 'Estrenos, episodios nuevos y el top semanal')),
-      h('span', { class: 'btn primary tg-go' }, 'Unirme'));
   }
 
   function statsBand(counts) {
@@ -309,16 +301,28 @@
         : h('div', { class: 'empty' }, h('p', {}, 'Guarda títulos con el botón “Mi lista” y aparecerán aquí.')),
       hist.length ? h('h2', { class: 'sub-title' }, 'Vistos recientemente') : null,
       hist.length ? h('div', { class: 'grid' }, hist.map((it) => card(it, it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null))) : null,
-      hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null,
-      h('div', { class: 'list-tg' }, telegramCard(), requestCard()),
-      legalLinks()));
+      hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null));
   }
 
-  /* ---------- enlaces legales (la app oculta el pie de página) ---------- */
-  const LEGAL = [['terminos', 'Términos y condiciones'], ['privacidad', 'Privacidad'], ['cookies', 'Cookies'], ['derechos-de-autor', 'Derechos de autor'], ['contacto', 'Contacto'], ['acerca', 'Acerca de']];
-  const legalLinks = () => h('nav', { class: 'legal-links', 'aria-label': 'Información legal' },
-    h('h2', { class: 'sub-title' }, 'Información'),
-    h('div', {}, LEGAL.map(([s, t]) => h('a', { href: '/' + s }, t))));
+  /* ---------- menú lateral ---------- */
+  function initDrawer() {
+    const d = $('#drawer'); const btn = $('#menuBtn'); if (!d || !btn) return;
+    const panel = $('.drawer-panel', d);
+    const close = () => {
+      if (d.hidden) return;
+      d.classList.remove('open'); btn.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('no-scroll');
+      setTimeout(() => { d.hidden = true; }, 220);
+    };
+    const open = () => {
+      d.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.body.classList.add('no-scroll');
+      requestAnimationFrame(() => { d.classList.add('open'); panel.focus(); });
+    };
+    btn.addEventListener('click', () => (d.hidden ? open() : close()));
+    d.addEventListener('click', (e) => { if (e.target.closest('[data-dclose], a')) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    window.addEventListener('hashchange', close);
+  }
 
   /* ---------- formulario de /contacto ---------- */
   function initContact() {
@@ -706,6 +710,7 @@
     form?.addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(t); go(); });
     input?.addEventListener('input', () => { clearTimeout(t); if ($('#modal')) t = setTimeout(go, 450); });
 
+    initDrawer();
     if (initWatch()) return;
     if (document.body.classList.contains('legal-body')) { initContact(); resumeBanner(); return; }
 

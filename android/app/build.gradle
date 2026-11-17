@@ -45,4 +45,6 @@ android {
 dependencies {
     // Permite ajustar el video dentro del reproductor (pantalla completa sin franjas negras).
     implementation 'androidx.webkit:webkit:1.12.1'
+    // Anuncios de Google AdSense dentro de la app (API de WebView para anuncios, exigida por Google).
+    implementation 'com.google.android.gms:play-services-ads:25.4.0'
 }

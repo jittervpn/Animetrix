@@ -23,14 +23,17 @@
 
 
 <script src="/assets/inapp.js"></script>
-<link rel="stylesheet" href="/assets/app.da874a7c01.css">
-<script src="/assets/app.ea6ced5a02.js" defer></script>
+<link rel="stylesheet" href="/assets/app.9c98aa3456.css">
+<script src="/assets/app.1a7d0704cf.js" defer></script>
 <script src="/_vercel/insights/script.js" defer></script>
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5047047508633424" crossorigin="anonymous"></script>
 </head>
 <body class="legal-body">
 <a class="skip" href="#app">Saltar al contenido</a>
 <header class="topbar" id="topbar">
+  <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menú" aria-controls="drawer" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+  </button>
   <a class="brand" href="/" aria-label="Animetrix inicio">
     <img src="/assets/logo.svg" alt="" width="30" height="30">
     <span>Animetrix</span>
@@ -41,11 +44,7 @@
     <a href="/#/series" data-nav="serie">Series</a>
     <a href="/#/anime" data-nav="anime">Anime</a>
     <a href="/#/mi-lista" data-nav="list">Mi lista</a>
-    <a href="/#/pedir" data-nav="pedir" class="nav-req">📥 Pedir</a>
   </nav>
-  <a class="tg-btn" href="https://t.me/animetrixlat" target="_blank" rel="noopener" aria-label="Canal de Telegram de Animetrix">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z"/><path d="m7.6 15 10-7.2-7.8 8.6"/></svg>
-  </a>
   <form class="search" role="search" action="/" id="searchForm">
     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="q" name="q" type="search" placeholder="Buscar títulos…" maxlength="60" autocomplete="off" aria-label="Buscar">
@@ -72,6 +71,30 @@
   <a href="/#/anime" data-nav="anime"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z"/></svg>Anime</a>
   <a href="/#/mi-lista" data-nav="list"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Mi lista</a>
 </nav>
+<div class="drawer" id="drawer" hidden>
+  <div class="drawer-bg" data-dclose></div>
+  <aside class="drawer-panel" role="dialog" aria-modal="true" aria-label="Menú" tabindex="-1">
+    <div class="drawer-head">
+      <span class="brand"><img src="/assets/logo.svg" alt="" width="30" height="30"><span>Animetrix</span></span>
+      <button class="drawer-x" type="button" data-dclose aria-label="Cerrar menú"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <nav class="drawer-nav" aria-label="Menú principal">
+      <p class="drawer-sec">Explorar</p>
+      <a href="/#/" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg> Inicio</a>
+      <a href="/#/peliculas" data-nav="movie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 9h18M8 5v4M16 5v4"/></svg> Películas</a>
+      <a href="/#/series" data-nav="serie"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM9 3l3 3 3-3"/></svg> Series</a>
+      <a href="/#/anime" data-nav="anime"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z"/></svg> Anime</a>
+      <a href="/#/mi-lista" data-nav="list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg> Mi lista</a>
+      <p class="drawer-sec">Comunidad</p>
+      <a href="/#/pedir" class="drawer-req"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg> Pedir una película o anime</a>
+      <a href="https://t.me/animetrixlat" target="_blank" rel="noopener" class="drawer-tg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z"/><path d="m7.6 15 10-7.2-7.8 8.6"/></svg> Canal de Telegram <small>@animetrixlat</small></a>
+      <a href="/app" class="web-only"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10v20H7zM11 18h2"/></svg> Descargar la app</a>
+      <p class="drawer-sec">Información</p>
+      <div class="drawer-legal"><a href="/terminos">Términos</a><a href="/privacidad">Privacidad</a><a href="/cookies">Cookies</a><a href="/derechos-de-autor">Derechos de autor</a><a href="/contacto">Contacto</a><a href="/acerca">Acerca de</a></div>
+    </nav>
+    <p class="drawer-foot">Datos de TMDB · © 2026 Animetrix</p>
+  </aside>
+</div>
 <footer class="foot">
   <p><strong>Animetrix</strong> · Reproductor provisto por InkaFlix. Este sitio no aloja archivos de video.</p>
   <p class="foot-links"><a href="/#/pedir">📥 Pedir una película o anime</a> · <a href="https://t.me/animetrixlat" target="_blank" rel="noopener">Canal de Telegram</a> · <a href="/app">📲 App para Android</a></p>

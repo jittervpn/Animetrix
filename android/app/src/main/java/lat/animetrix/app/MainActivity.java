@@ -118,7 +118,11 @@ public class MainActivity extends Activity {
 
         CookieManager cookies = CookieManager.getInstance();
         cookies.setAcceptCookie(true);
-        cookies.setAcceptThirdPartyCookies(web, true);      // el reproductor de InkaFlix las necesita
+        cookies.setAcceptThirdPartyCookies(web, true);      // el reproductor y los anuncios de Google las necesitan
+
+        // Conecta el visor con el SDK de Google para que AdSense funcione dentro de la app
+        // (requisito de Google para mostrar anuncios web en apps).
+        try { com.google.android.gms.ads.MobileAds.registerWebView(web); } catch (Throwable ignored) { }
 
         // Que se sienta como app y no como página: sin menú al mantener presionado,
         // sin barras de desplazamiento ni efecto rebote.
@@ -193,6 +197,30 @@ public class MainActivity extends Activity {
 
     private static boolean isOwnHttps(Uri u) {
         return "https".equalsIgnoreCase(u.getScheme()) && isOwnHost(u.getHost());
+    }
+
+    /** true mientras se ve la página del reproductor (/ver): solo ahí actúa el bloqueador de anuncios. */
+    private volatile boolean onPlayer;
+
+    private void trackPage(String url) {
+        if (url == null) return;
+        Uri u = Uri.parse(url);
+        onPlayer = isOwnHost(u.getHost()) && u.getPath() != null && u.getPath().startsWith("/ver");
+    }
+
+    /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaFlix)? */
+    private boolean fromPlayer(WebResourceRequest req) {
+        if (onPlayer) return true;
+        String ref = req.getRequestHeaders() == null ? null : req.getRequestHeaders().get("Referer");
+        return ref != null && ref.contains("inkaflix.space");
+    }
+
+    /** Clic en un anuncio de Google: se abre en el navegador. */
+    private static boolean isGoogleAdClick(Uri u) {
+        String h = u.getHost() == null ? "" : u.getHost().toLowerCase(Locale.ROOT);
+        return "https".equalsIgnoreCase(u.getScheme()) && (h.equals("googleadservices.com") || h.endsWith(".googleadservices.com")
+            || h.endsWith(".doubleclick.net") || h.endsWith(".googlesyndication.com")
+            || ((h.equals("www.google.com") || h.startsWith("www.google.")) && u.getPath() != null && u.getPath().startsWith("/aclk")));
     }
 
     private static boolean isTelegram(Uri u) {
@@ -297,15 +325,18 @@ public class MainActivity extends Activity {
             String scheme = u.getScheme() == null ? "" : u.getScheme().toLowerCase(Locale.ROOT);
 
             if (!req.isForMainFrame()) {
-                // Dentro del reproductor: se permite su navegación normal, salvo anuncios y esquemas raros.
+                // Marcos internos (reproductor o anuncios de Google): navegación normal, salvo esquemas raros.
+                // Los anuncios solo se bloquean dentro del reproductor de video.
                 if (!scheme.equals("https") && !scheme.equals("about") && !scheme.equals("blob") && !scheme.equals("data")) return true;
-                return AdBlocker.isAd(u.getHost());
+                return fromPlayer(req) && AdBlocker.isAd(u.getHost());
             }
             // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
             // Todo lo demás es un anuncio o redirección → bloqueado.
             if (isOwnHttps(u) && "/compartir".equals(u.getPath())) { shareTitle(u); return true; }
             if (isOwnHttps(u)) return false;
             if (isTelegram(u) && req.hasGesture()) { openExternal(u); return true; }
+            // Fuera del reproductor, un toque en un anuncio de Google se abre en el navegador.
+            if (!onPlayer && req.hasGesture() && "https".equals(scheme)) { openExternal(u); return true; }
             adBlockedToast();
             return true;
         }
@@ -313,13 +344,19 @@ public class MainActivity extends Activity {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
-            if (AdBlocker.isAd(u.getHost())) return AdBlocker.empty();
+            if (fromPlayer(req) && AdBlocker.isAd(u.getHost())) return AdBlocker.empty();
             return super.shouldInterceptRequest(view, req);
         }
 
         @Override
         public void onPageStarted(WebView view, String url, Bitmap favicon) {
+            trackPage(url);
             offline.setVisibility(View.GONE);
+        }
+
+        @Override
+        public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            trackPage(url);
         }
 
         @Override
@@ -363,7 +400,7 @@ public class MainActivity extends Activity {
         public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
             // Enlaces "abrir en otra ventana": solo se permiten Telegram (en su app) y Animetrix (en la misma pantalla).
             // Cualquier otra ventana emergente es un anuncio → bloqueada.
-            if (!isUserGesture) { adBlockedToast(); return false; }
+            if (!isUserGesture) { if (onPlayer) adBlockedToast(); return false; }
             WebView probe = new WebView(MainActivity.this);
             probe.setWebViewClient(new WebViewClient() {
                 private boolean handled;
@@ -372,6 +409,7 @@ public class MainActivity extends Activity {
                     handled = true;
                     if (isTelegram(u)) openExternal(u);
                     else if (isOwnHttps(u)) web.loadUrl(u.toString());
+                    else if (isGoogleAdClick(u) || (!onPlayer && "https".equalsIgnoreCase(u.getScheme()))) openExternal(u); // anuncio de Google tocado
                     else adBlockedToast();
                     v.stopLoading();
                     v.post(v::destroy);
