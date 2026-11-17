@@ -159,12 +159,68 @@ public class MainActivity extends Activity {
         }, "animetrix-open-check").start();
     }
 
+    /* ------------------------------------------------ opciones del menú lateral */
+
+    /** Acciones nativas pedidas desde el menú (enlaces /app-accion?a=…, sin puente JavaScript). */
+    private void appAction(String a) {
+        if (a == null) return;
+        switch (a) {
+            case "compartir": {
+                String text = "🍿 Mira películas, series y anime gratis en Animetrix\n\n📲 Descarga la app: https://www.animetrix.lat/app\n✈️ Canal: " + TELEGRAM;
+                Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_SUBJECT, "Animetrix").putExtra(Intent.EXTRA_TEXT, text);
+                startActivity(Intent.createChooser(send, getString(R.string.share_via)));
+                break;
+            }
+            case "notificaciones": {
+                Intent i;
+                if (Build.VERSION.SDK_INT >= 26) {
+                    i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
+                } else {
+                    i = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()));
+                }
+                try { startActivity(i); } catch (Exception e) { toast("No se pudieron abrir los ajustes"); }
+                break;
+            }
+            case "actualizar": {
+                toast("Buscando actualizaciones…");
+                new Thread(() -> {
+                    Notifier.Result r = Notifier.check(getApplicationContext());
+                    runOnUiThread(() -> {
+                        if (r.latestCode > BuildConfig.VERSION_CODE && r.updateUrl != null) showUpdate(r);
+                        else if (r.latestCode > 0) toast("✅ Ya tienes la última versión (" + BuildConfig.VERSION_NAME + ")");
+                        else toast("No se pudo comprobar. Revisa tu conexión.");
+                    });
+                }, "animetrix-manual-check").start();
+                break;
+            }
+            case "limpiar": {
+                // Solo la caché de imágenes y páginas: "Mi lista" y el historial se conservan.
+                web.clearCache(true);
+                toast("🧹 Caché borrada. Tu lista y tu historial se conservan.");
+                web.loadUrl(HOME);
+                break;
+            }
+            default: break;
+        }
+    }
+
+    private void toast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
     /** Aviso dentro de la app cuando hay una versión nueva (una vez por versión). */
     private void offerUpdate(Notifier.Result r) {
         if (isFinishing() || isDestroyed()) return;
         android.content.SharedPreferences p = getSharedPreferences("notify", MODE_PRIVATE);
         if (p.getInt("update_dialog", 0) == r.latestCode) return;
         p.edit().putInt("update_dialog", r.latestCode).apply();
+        showUpdate(r);
+    }
+
+    private void showUpdate(Notifier.Result r) {
+        if (isFinishing() || isDestroyed()) return;
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle(R.string.update_title)
             .setMessage(getString(R.string.update_dialog, r.latestName))
@@ -333,6 +389,7 @@ public class MainActivity extends Activity {
             // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
             // Todo lo demás es un anuncio o redirección → bloqueado.
             if (isOwnHttps(u) && "/compartir".equals(u.getPath())) { shareTitle(u); return true; }
+            if (isOwnHttps(u) && "/app-accion".equals(u.getPath())) { appAction(u.getQueryParameter("a")); return true; }
             if (isOwnHttps(u)) return false;
             if (isTelegram(u) && req.hasGesture()) { openExternal(u); return true; }
             // Fuera del reproductor, un toque en un anuncio de Google se abre en el navegador.

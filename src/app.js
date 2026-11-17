@@ -319,6 +319,15 @@
       requestAnimationFrame(() => { d.classList.add('open'); panel.focus(); });
     };
     btn.addEventListener('click', () => (d.hidden ? open() : close()));
+    const ver = /AnimetrixApp\/([\d.]+)/.exec(navigator.userAgent);
+    if (ver) $('#appVer').textContent = 'App v' + ver[1];
+    // En la web, "Compartir" usa el menú del navegador (en la app lo resuelve Android).
+    $('[data-act="share-app"]', d)?.addEventListener('click', async (e) => {
+      if (IN_APP) return;
+      e.preventDefault();
+      const data = { title: 'Animetrix', text: 'Películas, series y anime en Animetrix 🍿', url: 'https://www.animetrix.lat/' };
+      try { if (navigator.share) await navigator.share(data); else { await navigator.clipboard.writeText(data.url); toast('Enlace copiado ✅'); } } catch { /* cancelado */ }
+    });
     d.addEventListener('click', (e) => { if (e.target.closest('[data-dclose], a')) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
     window.addEventListener('hashchange', close);
@@ -469,6 +478,17 @@
         view = 'home'; await viewHome(); toast('Todavía no empezaste nada. ¡Elige algo para ver!');
       }
       else if (parts[0] === 'buscar' && !parts[1]) { nav = ''; view = 'home'; await viewHome(); setTimeout(() => $('#q')?.focus(), 200); }
+      else if (parts[0] === 'azar') {
+        const d = await api('home');
+        const all = Object.values(d.lists || {}).flat().filter((x) => x && TYPES[x.type] && x.tmdb);
+        if (!all.length) { view = 'home'; await viewHome(); return; }
+        const it = all[Math.floor(Math.random() * all.length)];
+        baseRoute = '/'; history.replaceState(null, '', '#/');
+        view = 'home'; await viewHome();
+        location.hash = '#/titulo/' + it.type + '/' + it.tmdb;
+        toast('🎲 Te sugerimos: ' + String(it.title || '').slice(0, 60));
+        return;
+      }
       else if (parts[0] === 'pedir') { nav = 'pedir'; view = 'home'; await viewHome(); openRequest(); }
       else { view = 'home'; await viewHome(); }
     } catch (e) { app().replaceChildren(errorBox(e.message, () => render(hash))); }
