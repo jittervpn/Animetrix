@@ -310,7 +310,49 @@
       hist.length ? h('h2', { class: 'sub-title' }, 'Vistos recientemente') : null,
       hist.length ? h('div', { class: 'grid' }, hist.map((it) => card(it, it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null))) : null,
       hist.length ? h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.set('history', []); viewList(); } }, 'Borrar historial') : null,
-      h('div', { class: 'list-tg' }, telegramCard(), requestCard())));
+      h('div', { class: 'list-tg' }, telegramCard(), requestCard()),
+      legalLinks()));
+  }
+
+  /* ---------- enlaces legales (la app oculta el pie de página) ---------- */
+  const LEGAL = [['terminos', 'Términos y condiciones'], ['privacidad', 'Privacidad'], ['cookies', 'Cookies'], ['derechos-de-autor', 'Derechos de autor'], ['contacto', 'Contacto'], ['acerca', 'Acerca de']];
+  const legalLinks = () => h('nav', { class: 'legal-links', 'aria-label': 'Información legal' },
+    h('h2', { class: 'sub-title' }, 'Información'),
+    h('div', {}, LEGAL.map(([s, t]) => h('a', { href: '/' + s }, t))));
+
+  /* ---------- formulario de /contacto ---------- */
+  function initContact() {
+    const box = $('#contactForm'); if (!box) return;
+    const sel = h('select', { name: 'reason', required: true, 'aria-label': 'Motivo' },
+      h('option', { value: '' }, 'Elige un motivo…'),
+      [['consulta', 'Consulta'], ['problema', 'Problema técnico'], ['privacidad', 'Privacidad o datos'], ['derechos', 'Derechos de autor'], ['otro', 'Otro']].map(([v, t]) => h('option', { value: v }, t)));
+    if (location.hash === '#derechos') sel.value = 'derechos';
+    const name = h('input', { name: 'name', maxlength: 40, placeholder: 'Nombre o empresa (opcional)', autocomplete: 'name' });
+    const email = h('input', { name: 'email', type: 'email', maxlength: 100, placeholder: 'Tu correo', autocomplete: 'email' });
+    const tg = h('input', { name: 'tg', maxlength: 40, placeholder: '@usuario de Telegram', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false' });
+    tg.value = store.get('tg_user', '') || '';
+    const msg = h('textarea', { name: 'message', maxlength: 1500, rows: 6, required: true, placeholder: 'Escribe tu mensaje (si es un aviso de derechos de autor, incluye el enlace exacto)' });
+    const trap = h('input', { name: 'website', tabindex: '-1', autocomplete: 'off', class: 'hp', 'aria-hidden': 'true' });
+    const err = h('p', { class: 'req-msg', role: 'alert' });
+    const btn = h('button', { class: 'btn primary', type: 'submit' }, 'Enviar mensaje');
+    const f = h('form', { class: 'contact-form', novalidate: true },
+      h('label', {}, 'Motivo', sel), h('label', {}, 'Nombre', name),
+      h('div', { class: 'contact-row' }, h('label', {}, 'Correo', email), h('label', {}, 'Telegram', tg)),
+      h('p', { class: 'muted small' }, 'Deja al menos uno de los dos para poder responderte.'),
+      h('label', {}, 'Mensaje', msg), trap, err, btn);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault(); err.textContent = '';
+      btn.disabled = true; btn.textContent = 'Enviando…';
+      try {
+        const r = await fetch('/api/pedido', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'contacto', reason: sel.value, name: name.value, email: email.value, tg: tg.value, message: msg.value, website: trap.value }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'No se pudo enviar');
+        if (tg.value.trim()) store.set('tg_user', tg.value.trim());
+        box.replaceChildren(h('div', { class: 'contact-ok' }, h('h2', {}, '¡Mensaje enviado! ✅'), h('p', {}, 'Gracias por escribirnos. Te responderemos por el medio que nos dejaste.')));
+      } catch (ex) { err.textContent = ex.message; btn.disabled = false; btn.textContent = 'Enviar mensaje'; }
+    });
+    box.replaceChildren(f);
   }
 
   /* ---------- ficha (modal) ---------- */
@@ -534,7 +576,8 @@
           feat('M7 4.5v15l13-7.5z', 'Seguir viendo', 'Retoma tus series en el episodio exacto.'),
           feat('M12 3l2.6 5.6L20 9.5l-4 4.1.9 5.9L12 16.8 7.1 19.5l.9-5.9-4-4.1 5.4-.9z', 'Lo mejor valorado', 'Rating, géneros y filtros para elegir rápido.'),
           feat('M21.5 4.3 2.9 11.4c-1 .4-1 1.8.1 2.1l4.6 1.5 1.8 5.5c.3.8 1.3 1 1.9.4l2.6-2.5 4.8 3.5c.7.5 1.7.1 1.9-.7l3.2-15c.2-1-.8-1.8-1.7-1.4Z', 'Canal de Telegram', '@animetrixlat: estrenos al instante.')),
-        h('button', { class: 'btn primary lg', type: 'submit' }, 'Empezar a ver')));
+        h('button', { class: 'btn primary lg', type: 'submit' }, 'Empezar a ver'),
+        h('p', { class: 'welcome-legal' }, 'Al continuar aceptas los ', h('a', { href: '/terminos' }, 'Términos'), ' y la ', h('a', { href: '/privacidad' }, 'Política de privacidad'), '.')));
     document.body.append(ov); document.body.classList.add('no-scroll');
     setTimeout(() => input.focus(), 300);
   }
@@ -664,6 +707,7 @@
     input?.addEventListener('input', () => { clearTimeout(t); if ($('#modal')) t = setTimeout(go, 450); });
 
     if (initWatch()) return;
+    if (document.body.classList.contains('legal-body')) { initContact(); resumeBanner(); return; }
 
     // Precarga la ficha cuando el usuario apunta o toca una tarjeta.
     const intent = (e) => {

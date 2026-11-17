@@ -24,8 +24,55 @@ const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 async function readBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
   let raw = '';
-  for await (const chunk of req) { raw += chunk; if (raw.length > 4096) throw new Error('grande'); }
+  for await (const chunk of req) { raw += chunk; if (raw.length > 8192) throw new Error('grande'); }
   return JSON.parse(raw || '{}');
+}
+
+const REASONS = { consulta: '💬 Consulta', problema: '🛠️ Problema técnico', privacidad: '🔒 Privacidad / datos', derechos: '⚖️ Derechos de autor', otro: '📨 Otro' };
+
+function tgUser(v) {
+  const t = typeof v === 'string' ? v.trim().replace(/^https?:\/\/t\.me\//i, '').replace(/^@/, '') : '';
+  if (!t) return '';
+  return /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(t) ? t : null;
+}
+
+async function toAdmin(text) {
+  const token = process.env.TELEGRAM_BOT_TOKEN || '';
+  const chat = process.env.TELEGRAM_ADMIN_CHAT_ID || '';
+  if (!token || !chat) return 503;
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chat, text, parse_mode: 'HTML', disable_web_page_preview: true }), signal: AbortSignal.timeout(8000),
+    });
+    if (!r.ok) throw new Error('telegram ' + r.status);
+    return 200;
+  } catch (e) { console.error('[animetrix-contacto] no se pudo enviar:', e.message); return 502; }
+}
+
+// Mensajes de la página /contacto (consultas, privacidad, avisos de derechos de autor).
+async function contact(req, res, b, ip) {
+  const reason = Object.hasOwn(REASONS, b.reason) ? b.reason : null;
+  const msg = typeof b.message === 'string' ? b.message.replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '').trim().slice(0, 1500) : '';
+  const email = typeof b.email === 'string' ? b.email.trim().slice(0, 100) : '';
+  const tg = tgUser(b.tg);
+  const name = asText(b.name, 40) || '';
+  if (!reason) return sendJson(res, 400, { error: 'Elige el motivo del mensaje' });
+  if (msg.length < 10) return sendJson(res, 400, { error: 'Escribe un mensaje un poco más largo' });
+  if (email && !/^[^\s@<>]{1,64}@[A-Za-z0-9.-]{1,80}\.[A-Za-z]{2,24}$/.test(email)) return sendJson(res, 400, { error: 'El correo no es válido' });
+  if (tg === null) return sendJson(res, 400, { error: 'El usuario de Telegram no es válido (ej: @animetrixlat)' });
+  if (!email && !tg) return sendJson(res, 400, { error: 'Deja tu correo o tu usuario de Telegram para poder responderte' });
+  if (limited(ip)) { logSuspicious(req, 'contacto-rate-limit'); res.setHeader('Retry-After', '600'); return sendJson(res, 429, { error: 'Ya enviaste varios mensajes. Prueba en unos minutos.' }); }
+  console.log(`[animetrix-contacto] ${reason}`);
+  const text = `<b>📨 Nuevo mensaje de contacto</b>\n\n${REASONS[reason]}`
+    + (name ? `\n👤 ${esc(name)}` : '')
+    + (email ? `\n📧 ${esc(email)}` : '')
+    + (tg ? `\n✈️ <a href="https://t.me/${tg}">@${tg}</a>` : '')
+    + `\n\n${esc(msg)}`;
+  const st = await toAdmin(text);
+  if (st === 503) return sendJson(res, 503, { error: 'El contacto no está disponible por ahora' });
+  if (st !== 200) return sendJson(res, 502, { error: 'No se pudo enviar el mensaje. Intenta más tarde.' });
+  return sendJson(res, 200, { ok: true });
 }
 
 export default async function handler(req, res) {
@@ -38,13 +85,14 @@ export default async function handler(req, res) {
     logSuspicious(req, 'pedido-cross-site'); return sendJson(res, 403, { error: 'Origen no permitido' });
   }
   if (!String(req.headers['content-type'] || '').startsWith('application/json')) return sendJson(res, 415, { error: 'Formato no válido' });
-  if (Number(req.headers['content-length'] || 0) > 4096) return sendJson(res, 413, { error: 'Pedido demasiado largo' });
+  if (Number(req.headers['content-length'] || 0) > 8192) return sendJson(res, 413, { error: 'Pedido demasiado largo' });
 
   const ip = String(req.headers['x-real-ip'] || req.headers['x-forwarded-for'] || '0').split(',')[0].trim();
   let b;
   try { b = await readBody(req); } catch { return sendJson(res, 400, { error: 'Pedido no válido' }); }
 
   if (b.website) { logSuspicious(req, 'pedido-honeypot'); return sendJson(res, 200, { ok: true }); } // bot: se ignora en silencio
+  if (b.kind === 'contacto') return contact(req, res, b, ip);
   const title = asText(b.title, 80);
   const type = Object.hasOwn(TYPES, b.type) ? b.type : null;
   const year = /^\d{4}$/.test(String(b.year || '')) && +b.year >= 1900 && +b.year <= 2100 ? String(b.year) : '';

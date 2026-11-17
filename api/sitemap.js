@@ -2,13 +2,15 @@
 import { catalogAll, title, TYPES } from '../lib/inkaflix.js';
 import { mapLimit } from '../lib/tmdb.js';
 import { rateLimited } from '../lib/http.js';
+import { LINKS } from '../lib/legal.js';
 
 const SITE = 'https://www.animetrix.lat';
 const x = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export default async function handler(req, res) {
   if (rateLimited(req, 20)) { res.statusCode = 429; res.setHeader('Retry-After', '60'); return res.end('Too many requests'); }
-  const urls = [{ loc: SITE + '/', priority: '1.0', freq: 'daily' }];
+  const urls = [{ loc: SITE + '/', priority: '1.0', freq: 'daily' },
+    ...LINKS.map(([slug]) => ({ loc: `${SITE}/${slug}`, priority: '0.3', freq: 'monthly' }))];
   for (const t of TYPES) {
     let items = [];
     try { items = (await catalogAll(t)).items || []; } catch { /* sigue con lo que haya */ }

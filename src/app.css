@@ -538,3 +538,33 @@ a.stat:hover { background: #151927; }
 
 .req-help { margin: -6px 0 0; font-size: 12px; color: var(--muted); }
 .req-card input[name=tg] { text-transform: none; }
+
+/* ---------- páginas legales y contacto ---------- */
+.legal { padding: 96px var(--pad) 60px; }
+@media (max-width: 640px) { .legal { padding-top: 78px; } }
+.legal-page { max-width: 780px; margin: 0 auto; line-height: 1.7; color: var(--muted); font-size: 15.5px; }
+.legal-page h1 { font-family: var(--display); color: var(--text); font-size: clamp(26px, 5vw, 40px); line-height: 1.15; margin: 6px 0 4px; }
+.legal-page h2 { color: var(--text); font-size: 18px; margin: 28px 0 8px; }
+.legal-page strong { color: var(--text); }
+.legal-page a { color: var(--acc); text-underline-offset: 3px; }
+.legal-page ul, .legal-page ol { padding-left: 22px; }
+.legal-page li { margin: 6px 0; }
+.legal-page code { background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 6px; font-size: 13px; word-break: break-all; }
+.legal-date { font-size: 13px; margin: 0 0 16px; }
+.legal-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+.legal-nav a, .legal-links a { padding: 7px 12px; border: 1px solid var(--line); border-radius: 999px; color: var(--text); text-decoration: none; font-size: 13px; }
+.legal-nav a[aria-current="page"] { background: var(--acc); color: #07080c; border-color: var(--acc); font-weight: 700; }
+.legal-links { margin-top: 36px; }
+.legal-links div { display: flex; flex-wrap: wrap; gap: 8px; }
+.foot-tmdb { font-size: 12px; opacity: .8; }
+.welcome-legal { font-size: 12px; color: var(--muted); margin: 12px 0 0; text-align: center; }
+.welcome-legal a { color: var(--text); text-decoration: underline; }
+.contact-box { margin: 18px 0 10px; padding: 20px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.03); }
+.contact-form { display: grid; gap: 12px; }
+.contact-form label { display: grid; gap: 6px; color: var(--text); font-size: 13px; font-weight: 600; }
+.contact-form input, .contact-form select, .contact-form textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: #0d0f16; color: var(--text); font: inherit; font-size: 15px; font-weight: 400; }
+.contact-form textarea { resize: vertical; min-height: 130px; }
+.contact-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.contact-form .small { font-size: 12px; margin: -4px 0 0; }
+.contact-ok h2 { margin-top: 0; }
+@media (max-width: 640px) { .contact-row { grid-template-columns: 1fr; } .contact-box { padding: 16px; } }

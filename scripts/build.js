@@ -38,4 +38,8 @@ writeFileSync(root + 'public/index.html', html);
 writeFileSync(root + 'public/404.html', pageStart({ title: 'Página no encontrada' })
   + '<main id="app" class="app"><section class="empty"><h1>Esta página no existe</h1><p>Puede que el enlace esté roto o el título ya no esté disponible.</p><p><a class="btn primary" href="/">Ir al inicio</a></p></section></main>'
   + pageEnd());
-console.log('public/index.html generado');
+const { PAGES } = await import(root + 'lib/legal.js?' + Date.now());
+for (const pg of PAGES) {
+  writeFileSync(root + `public/${pg.slug}.html`, pageStart({ title: pg.title, description: pg.description, bodyClass: 'legal-body', canonical: `https://www.animetrix.lat/${pg.slug}` }) + pg.html + pageEnd());
+}
+console.log('public/index.html y', PAGES.length, 'páginas legales generadas');
