@@ -275,18 +275,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .tags a { padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 12px; font-weight: 700; color: #c9cede; transition: background .2s, color .2s; }
 .tags a:hover { background: var(--acc); color: var(--acc-ink); }
 
-/* ---------- contador del catálogo ---------- */
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin: -20px var(--pad) 40px; position: relative; z-index: 2;
-  background: var(--line); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-.stat { display: grid; gap: 2px; padding: 18px 20px; background: var(--bg-2); transition: background .2s; }
-a.stat:hover { background: #151927; }
-.stat strong { font: 900 clamp(26px, 3.4vw, 40px)/1 var(--display); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-.stat span { color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.stat.total strong { color: var(--acc); }
-@media (max-width: 640px) {
-  .stats { grid-template-columns: repeat(2, 1fr); margin-top: 0; }
-  .stat { padding: 14px 16px; }
-}
 
 /* ---------- filtros ---------- */
 .page-count { margin: -8px 0 18px; color: var(--muted); font-weight: 700; }
@@ -331,8 +319,6 @@ a.stat:hover { background: #151927; }
   .hero-overview { -webkit-line-clamp: 2; margin-bottom: 18px; font-size: 14px; }
   .btn.lg { padding: 12px 20px; font-size: 14px; }
   .actions { gap: 10px; }
-  .stats { margin: 0 var(--pad) 28px; border-radius: 14px; }
-  .stat strong { font-size: 26px; }
 
   .row { margin: 4px 0 24px; contain-intrinsic-size: auto 260px; }
   .row-head { margin-bottom: 8px; }
@@ -533,7 +519,6 @@ a.stat:hover { background: #151927; }
   .search { padding: 0 10px; }
   .row-track { grid-auto-columns: calc((100vw - var(--pad) * 2 - 16px) / 2.6); }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .stat strong { font-size: 22px; }
 }
 
 .req-help { margin: -6px 0 0; font-size: 12px; color: var(--muted); }

@@ -88,13 +88,7 @@
   const rateClass = (r) => (r >= 7.5 ? 'hi' : r >= 6 ? 'mid' : 'lo');
   const fold = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const fmtRuntime = (m) => (m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60 ? (m % 60) + ' min' : '') : m + ' min').trim();
-  function countUp(el, to) {
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || !to) { el.textContent = String(to); return; }
-    const t0 = performance.now(); const dur = 900;
-    const step = (t) => { const k = Math.min(1, (t - t0) / dur); el.textContent = String(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1) requestAnimationFrame(step); };
-    requestAnimationFrame(step);
-  }
+
 
   /* ---------- componentes ---------- */
   function poster(it, cls = 'poster') {
@@ -151,7 +145,7 @@
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
     root.replaceChildren(...[
-      hero(feat), h('div', { class: 'greet', id: 'greet' }), statsBand(d.counts || {}),
+      hero(feat), h('div', { class: 'greet', id: 'greet' }),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
@@ -171,17 +165,6 @@
       d.runtime ? h('span', {}, fmtRuntime(d.runtime)) : null,
       ...(d.genres || []).slice(0, 3).map((g) => h('span', {}, g)),
     ].filter(Boolean);
-  }
-
-  function statsBand(counts) {
-    let sum = 0;
-    const cells = [['movie', 'Películas', '#/peliculas'], ['serie', 'Series', '#/series'], ['anime', 'Anime', '#/anime']].map(([t, label, href]) => {
-      const v = Number(counts[t]) || 0; sum += v;
-      const n = h('strong', {}, '0'); requestAnimationFrame(() => countUp(n, v));
-      return h('a', { class: 'stat', href }, n, h('span', {}, label));
-    });
-    const total = h('strong', {}, '0'); requestAnimationFrame(() => countUp(total, sum));
-    return h('section', { class: 'stats', 'aria-label': 'Catálogo' }, ...cells, h('div', { class: 'stat total' }, total, h('span', {}, 'Títulos en total')));
   }
 
   function hero(it) {
