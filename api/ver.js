@@ -26,15 +26,6 @@ export default async function handler(req, res) {
       + '<main id="app" class="app"><section class="empty"><h1>Título no encontrado</h1><p><a class="btn primary" href="/">Volver al inicio</a></p></section></main>'
       + pageEnd());
   }
-
-  if (!(await typeEnabled(type))) {
-    res.statusCode = 503;
-    res.setHeader('Cache-Control', 'no-store');
-    const NM = { movie: 'Las películas', serie: 'Las series', anime: 'El anime' };
-    return res.end(pageStart({ title: 'Sección no disponible' })
-      + `<main id="app" class="app"><section class="empty"><h1>${NM[type]} no están disponibles por ahora</h1><p>Esta sección está en mantenimiento. Vuelve a intentarlo más tarde.</p><p><a class="btn primary" href="/">Volver al inicio</a></p></section></main>`
-      + pageEnd());
-  }
   const se = type === 'movie' ? null : (asInt(one(q.se) ?? '1', 0, 500) ?? 1);
   const ep = type === 'movie' ? null : (asInt(one(q.ep) ?? '1', 0, 100000) ?? 1);
 
@@ -58,6 +49,7 @@ export default async function handler(req, res) {
   const link0 = type === 'movie' ? `/ver?t=movie&id=${tmdb}` : link([se, ep]);
   // Protección: SIN allow-top-navigation → ningún anuncio puede sacar al usuario de la página.
   // Con allow-popups → el reproductor puede abrir su anuncio en otra pestaña (muchos lo exigen para soltar el video).
+  const playerOff = !(await typeEnabled(type));
   const sandbox = config().sandbox ? ' sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox allow-orientation-lock allow-pointer-lock"' : '';
   const watchData = JSON.stringify({ type, tmdb, title: name, poster: info?.poster || null, year: info?.year || null, se, ep });
 
@@ -103,14 +95,16 @@ export default async function handler(req, res) {
     },
   }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
-  <div class="player-wrap"><div class="player">
-    <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
-      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
+  <div class="player-wrap"><div class="player${playerOff ? ' off' : ''}">
+    ${playerOff
+      ? `<div class="player-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="M9 9l6 6M15 9l-6 6"/></svg><h2>Reproducción no disponible por ahora</h2><p>Este contenido está en mantenimiento temporal. La información del título sigue disponible aquí abajo.</p></div>`
+      : `<iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>`}
   </div></div>
-  <div class="ad-tip" id="adTip">
+  ${playerOff ? '' : `<div class="ad-tip" id="adTip">
     <svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
     <p><strong>Cerrar anuncios:</strong> si al tocar el video aparece <em>“¿Salir de esta página?”</em> o <em>“Confirmar navegación”</em>, toca <strong>Quedarme / Cancelar</strong>. El anuncio se cierra y tu video sigue igual.</p>
-  </div>
+  </div>`}
   ${sandbox ? `<div class="player-bar" id="playerBar">
     <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Protección activada: los anuncios no te sacarán del video</span></span>
     <button type="button" class="link-btn" id="compatBtn">¿No carga? Usar modo compatible</button>

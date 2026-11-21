@@ -3,7 +3,6 @@
 // El navegador nunca ve la API key: esta función la añade del lado del servidor.
 import { asType, asInt, catalog, catalogAll, stats, home, title, ApiError } from '../lib/inkaflix.js';
 import { securityHeaders, rateLimited, sendJson, logSuspicious } from '../lib/http.js';
-import { getFlags, typeEnabled } from '../lib/flags.js';
 
 export default async function handler(req, res) {
   securityHeaders(res, false);
@@ -16,23 +15,13 @@ export default async function handler(req, res) {
   const q = req.query || {};
   const one = (v) => (Array.isArray(v) ? v[0] : v);
   if (one(q.a) === 'home') {
-    try {
-      const [data, flags] = await Promise.all([home(), getFlags()]);
-      for (const t of Object.keys(data.lists || {})) if (flags[t] === false) { delete data.lists[t]; if (data.counts) data.counts[t] = 0; }
-      if (data.featured && flags[data.featured.type] === false) {
-        const alt = Object.values(data.lists || {}).flat()[0];
-        data.featured = alt || null;
-      }
-      return sendJson(res, 200, data, 60);
-    } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
+    try { return sendJson(res, 200, await home(), 300); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
   }
   if (one(q.a) === 'stats') {
     try { return sendJson(res, 200, await stats(), 120); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
   }
   const type = asType(one(q.type));
   if (!type) { logSuspicious(req, 'bad-type'); return sendJson(res, 400, { error: 'Tipo no válido' }); }
-
-  if (!(await typeEnabled(type))) return sendJson(res, 200, { disabled: true, items: [], total: 0, page: 1, pages: 0 }, 30);
 
   try {
     switch (one(q.a)) {

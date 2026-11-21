@@ -2,7 +2,6 @@
 // Devuelve: catálogo compacto (para detectar estrenos y episodios nuevos),
 // el aviso activo (mantenimiento) y la última versión de la app.
 import { catalogAll, TYPES, asText } from '../lib/inkaflix.js';
-import { getFlags } from '../lib/flags.js';
 import { securityHeaders, rateLimited, sendJson } from '../lib/http.js';
 import avisos from '../avisos.js';
 
@@ -33,9 +32,7 @@ export default async function handler(req, res) {
   if (rateLimited(req, 30)) { res.setHeader('Retry-After', '60'); return sendJson(res, 429, { error: 'Demasiadas peticiones' }); }
 
   const items = [];
-  const flags = await getFlags();
   await Promise.all(TYPES.map(async (t) => {
-    if (flags[t] === false) return; // tipo desactivado por el admin
     try {
       for (const it of (await catalogAll(t)).items || []) {
         items.push({ k: `${t}:${it.tmdb}`, ty: t, id: it.tmdb, t: it.title, e: it.episodes || 0 });
