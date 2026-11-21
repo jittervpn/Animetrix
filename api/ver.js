@@ -95,17 +95,15 @@ export default async function handler(req, res) {
     },
   }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
-  <div class="player-wrap"><div class="player${playerOff ? ' off' : ''}">
-    ${playerOff
-      ? `<div class="player-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="M9 9l6 6M15 9l-6 6"/></svg><h2>Reproducción no disponible por ahora</h2><p>Este contenido está en mantenimiento temporal. La información del título sigue disponible aquí abajo.</p></div>`
-      : `<iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
-      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>`}
+  ${playerOff ? '' : `<div class="player-wrap"><div class="player">
+    <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
-  ${playerOff ? '' : `<div class="ad-tip" id="adTip">
+  <div class="ad-tip" id="adTip">
     <svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
     <p><strong>Cerrar anuncios:</strong> si al tocar el video aparece <em>“¿Salir de esta página?”</em> o <em>“Confirmar navegación”</em>, toca <strong>Quedarme / Cancelar</strong>. El anuncio se cierra y tu video sigue igual.</p>
   </div>`}
-  ${sandbox ? `<div class="player-bar" id="playerBar">
+  ${(sandbox && !playerOff) ? `<div class="player-bar" id="playerBar">
     <span class="shield"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg><span id="shieldText">Protección activada: los anuncios no te sacarán del video</span></span>
     <button type="button" class="link-btn" id="compatBtn">¿No carga? Usar modo compatible</button>
   </div>` : ''}
