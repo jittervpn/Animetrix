@@ -26,6 +26,7 @@ export default async function handler(req, res) {
   // GET sin clave: muestra la página (shell). La clave se pide en el navegador.
   if (req.method === 'GET') {
     securityHeaders(res, true);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
     // CSP propia del panel: es una página aislada (sin contenido de usuario) y usa script en línea.
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     res.setHeader('Cache-Control', 'no-store');
