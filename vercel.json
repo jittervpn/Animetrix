@@ -32,6 +32,10 @@
     {
       "source": "/compartir",
       "destination": "/api/compartir"
+    },
+    {
+      "source": "/app-ads.txt",
+      "destination": "/api/app-ads"
     }
   ],
   "headers": [

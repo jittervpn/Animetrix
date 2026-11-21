@@ -55,6 +55,19 @@ Desde ahí, cada cambio que se suba a `main` se publica automáticamente.
 > Por eso la key debe estar **restringida al dominio `animetrix.lat`** en el panel de InkaCat.
 > Si se filtra: **Revocar**, generar otra y cambiar `INKAFLIX_KEY` en Vercel (y *Redeploy*).
 
+## AdMob (banner de la app Android)
+
+Todo se configura en **animetrix.lat/admin → AdMob · Banner**:
+
+- **Mostrar banner**, **Modo prueba** (anuncios de prueba de Google), **Posición** (arriba/abajo) y
+  **Ocultar en el reproductor**: la app los lee de `/api/app-config` y se aplican en ~1 minuto, sin APK nuevo.
+- **ID del banner** (`ca-app-pub-…/…`): también se aplica sin APK nuevo.
+- **App ID** (`ca-app-pub-…~…`): va dentro del APK. El workflow *App Android* lo lee del panel al compilar;
+  después de cambiarlo, ejecuta *Actions → App Android (APK) → Run workflow*. Sin App ID se usa el de prueba de Google.
+- `/app-ads.txt` se genera solo con la cuenta del App ID (AdMob lo exige en el sitio del desarrollador).
+
+Necesita la misma Blob store que ya usan los interruptores (`BLOB_READ_WRITE_TOKEN`) y `ADMIN_SECRET`.
+
 ## Probar en tu PC
 
 ```bash

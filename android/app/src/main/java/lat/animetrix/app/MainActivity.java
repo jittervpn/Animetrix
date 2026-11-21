@@ -65,6 +65,7 @@ public class MainActivity extends Activity {
     private VideoFit.Holder fullscreenHolder;
     private WebChromeClient.CustomViewCallback fullscreenCallback;
 
+    private AdBanner banner;
     private long lastBackPress;
     private long lastAdToast;
 
@@ -153,6 +154,11 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
         }
         maybeInviteTelegram();
+
+        // Banner de AdMob (se enciende/apaga y configura desde animetrix.lat/admin).
+        banner = new AdBanner(this, findViewById(R.id.content), findViewById(R.id.ad_slot));
+        banner.start();
+
         new Thread(() -> {
             Notifier.Result r = Notifier.check(getApplicationContext());
             if (r.latestCode > BuildConfig.VERSION_CODE && r.updateUrl != null) runOnUiThread(() -> offerUpdate(r));
@@ -262,6 +268,7 @@ public class MainActivity extends Activity {
         if (url == null) return;
         Uri u = Uri.parse(url);
         onPlayer = isOwnHost(u.getHost()) && u.getPath() != null && u.getPath().startsWith("/ver");
+        if (banner != null) banner.setOnPlayer(onPlayer);
     }
 
     /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaCat)? */
@@ -515,6 +522,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(true));
             setFullscreenBars(true);
+            if (banner != null) banner.setFullscreen(true);
             root.requestApplyInsets();
         }
 
@@ -536,6 +544,7 @@ public class MainActivity extends Activity {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(false));
         setFullscreenBars(false);
+        if (banner != null) banner.setFullscreen(false);
         root.requestApplyInsets();
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
     }
@@ -605,12 +614,24 @@ public class MainActivity extends Activity {
         super.onPause();
         boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
         if (!pip) web.onPause();   // en imagen en imagen el video sigue reproduciéndose
+        if (banner != null) banner.onPause();
         CookieManager.getInstance().flush();
     }
-    @Override protected void onResume() { super.onResume(); web.onResume(); }
+    @Override protected void onResume() {
+        super.onResume();
+        web.onResume();
+        if (banner != null) banner.onResume();
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (banner != null) banner.onSizeChanged();   // giro de pantalla: banner al nuevo ancho
+    }
 
     @Override
     protected void onDestroy() {
+        if (banner != null) banner.onDestroy();
         if (web != null) {
             web.stopLoading();
             web.setWebChromeClient(null);

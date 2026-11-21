@@ -10,6 +10,13 @@ android {
         targetSdk 35
         versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
         versionName(System.getenv('VERSION_NAME') ?: '1.0')
+
+        // App ID de AdMob: lo pasa el workflow (leído del panel /admin). Si falta o no es válido,
+        // se usa el ID de prueba oficial de Google (la app nunca se cierra por falta de ID).
+        def admob = (System.getenv('ADMOB_APP_ID') ?: '').trim()
+        if (!(admob ==~ '^ca-app-pub-\\d{10,20}~\\d{6,14}$')) admob = 'ca-app-pub-3940256099942544~3347511713'
+        manifestPlaceholders = [admobAppId: admob]
+        buildConfigField 'String', 'ADMOB_APP_ID', '"' + admob + '"'
     }
 
     // La firma se lee de variables de entorno (secretos de GitHub). Nunca va en el repositorio.
@@ -45,6 +52,6 @@ android {
 dependencies {
     // Permite ajustar el video dentro del reproductor (pantalla completa sin franjas negras).
     implementation 'androidx.webkit:webkit:1.12.1'
-    // Anuncios de Google AdSense dentro de la app (API de WebView para anuncios, exigida por Google).
+    // Google Mobile Ads: banner de AdMob + API de WebView para AdSense dentro de la app.
     implementation 'com.google.android.gms:play-services-ads:25.4.0'
 }
