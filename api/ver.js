@@ -2,6 +2,7 @@
 //                        /ver?t=serie&id=230424&se=1&ep=10
 import { asType, asInt, title as getTitle, embedUrl, esc, config } from '../lib/inkaflix.js';
 import { securityHeaders, rateLimited } from '../lib/http.js';
+import { typeEnabled } from '../lib/flags.js';
 import { pageStart, pageEnd } from '../lib/layout.js';
 
 const LABEL = { movie: 'Película', serie: 'Serie', anime: 'Anime' };
@@ -23,6 +24,15 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.end(pageStart({ title: 'No encontrado' })
       + '<main id="app" class="app"><section class="empty"><h1>Título no encontrado</h1><p><a class="btn primary" href="/">Volver al inicio</a></p></section></main>'
+      + pageEnd());
+  }
+
+  if (!(await typeEnabled(type))) {
+    res.statusCode = 503;
+    res.setHeader('Cache-Control', 'no-store');
+    const NM = { movie: 'Las películas', serie: 'Las series', anime: 'El anime' };
+    return res.end(pageStart({ title: 'Sección no disponible' })
+      + `<main id="app" class="app"><section class="empty"><h1>${NM[type]} no están disponibles por ahora</h1><p>Esta sección está en mantenimiento. Vuelve a intentarlo más tarde.</p><p><a class="btn primary" href="/">Volver al inicio</a></p></section></main>`
       + pageEnd());
   }
   const se = type === 'movie' ? null : (asInt(one(q.se) ?? '1', 0, 500) ?? 1);

@@ -197,6 +197,8 @@
     let data;
     try { data = await api('all', { type }); } catch (e) { grid.replaceChildren(errorBox(e.message, () => viewGrid(type))); return; }
     if (view !== 'grid:' + type) return;
+    if (data.disabled) { count.textContent = ''; bar.remove(); more.remove();
+      grid.replaceWith(h('div', { class: 'empty' }, h('h2', {}, TYPES[type] + ' no disponibles'), h('p', {}, 'Esta sección está en mantenimiento por ahora. Vuelve a intentarlo más tarde.'))); return; }
     const items = data.items || [];
     if (!items.length) { count.textContent = ''; bar.remove(); grid.replaceWith(h('div', { class: 'empty' }, h('p', {}, 'Aún no hay ' + TYPES[type].toLowerCase() + ' en el catálogo.'))); return; }
 
