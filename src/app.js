@@ -61,7 +61,7 @@
     },
   };
 
-  /* ---------- API (vía /api.php, nunca directo a InkaFlix) ---------- */
+  /* ---------- API (vía /api.php, nunca directo a InkaCat) ---------- */
   const memo = new Map();
   async function api(action, params) {
     const qs = new URLSearchParams({ a: action, ...params }).toString();

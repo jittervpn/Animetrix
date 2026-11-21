@@ -264,7 +264,7 @@ public class MainActivity extends Activity {
         onPlayer = isOwnHost(u.getHost()) && u.getPath() != null && u.getPath().startsWith("/ver");
     }
 
-    /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaFlix)? */
+    /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaCat)? */
     private boolean fromPlayer(WebResourceRequest req) {
         if (onPlayer) return true;
         String ref = req.getRequestHeaders() == null ? null : req.getRequestHeaders().get("Referer");

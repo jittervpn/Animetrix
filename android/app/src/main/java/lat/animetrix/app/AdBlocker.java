@@ -7,7 +7,7 @@ import java.util.Locale;
 
 /**
  * Bloqueador de anuncios a nivel de red (como un adblock de navegador).
- * Funciona también dentro del reproductor de InkaFlix, porque la app intercepta
+ * Funciona también dentro del reproductor de InkaCat, porque la app intercepta
  * todas las peticiones del visor web, incluidas las de iframes de otros dominios.
  */
 final class AdBlocker {
