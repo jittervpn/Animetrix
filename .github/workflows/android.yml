@@ -61,6 +61,19 @@ jobs:
             echo "::warning::Falta el secreto ANDROID_SIGNING_KEY: el APK se firmó con una clave temporal."
           fi
 
+      - name: Leer App ID de AdMob (panel /admin)
+        env:
+          FALLBACK: ${{ vars.ADMOB_APP_ID }}
+        run: |
+          ID=$(curl -fsS --max-time 20 https://www.animetrix.lat/api/app-config | jq -r '.ads.appId // empty' || true)
+          [ -z "$ID" ] && ID="$FALLBACK"
+          if printf '%s' "$ID" | grep -Eq '^ca-app-pub-[0-9]{10,20}~[0-9]{6,14}$'; then
+            echo "ADMOB_APP_ID=$ID" >> "$GITHUB_ENV"
+            echo "App ID de AdMob: $ID"
+          else
+            echo "::warning::No hay App ID de AdMob en el panel: el APK usa el ID de prueba de Google."
+          fi
+
       - name: Compilar APK
         working-directory: android
         env:

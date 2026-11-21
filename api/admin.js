@@ -1,5 +1,6 @@
 // ==========================================================================
-//  Panel de admin — encender/apagar Películas, Series y Anime.
+//  Panel de admin — encender/apagar Películas, Series y Anime,
+//  y configurar el banner de AdMob de la app Android.
 //  Entra en /admin, escribe tu clave (ADMIN_SECRET) y usa los interruptores.
 //  La clave nunca viaja en la URL: va en una cabecera y se valida en servidor.
 // ==========================================================================
@@ -7,6 +8,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { securityHeaders, sendJson, rateLimited, logSuspicious } from '../lib/http.js';
 import { getFlags, setFlag } from '../lib/flags.js';
 import { TYPES } from '../lib/inkaflix.js';
+import { getAds, setAds, publicView } from '../lib/ads.js';
 
 function validKey(given) {
   const real = process.env.ADMIN_SECRET || '';
@@ -48,7 +50,22 @@ export default async function handler(req, res) {
 
   try {
     // Solo leer el estado (al abrir el panel)
-    if (b.action === 'get') return sendJson(res, 200, { flags: await getFlags() });
+    if (b.action === 'get') {
+      const [flags, ads] = await Promise.all([getFlags(), getAds()]);
+      return sendJson(res, 200, { flags, ads });
+    }
+
+    // Guardar la configuración de AdMob
+    if (b.action === 'ads' && b.ads && typeof b.ads === 'object') {
+      let ads;
+      try { ads = await setAds(b.ads); } catch (e) {
+        if (e && e.userError) return sendJson(res, 400, { error: e.message });
+        throw e;
+      }
+      const v = publicView(ads);
+      console.log(`[animetrix-admin] admob -> ${v.enabled ? 'ON' : 'OFF'}${ads.test ? ' (prueba)' : ''}`);
+      return sendJson(res, 200, { ads });
+    }
 
     // Cambiar un interruptor
     if (b.action === 'set' && TYPES.includes(b.type) && typeof b.on === 'boolean') {
@@ -94,6 +111,17 @@ button{font:inherit;cursor:pointer}
 .hide{display:none}
 .foot{margin-top:20px;font-size:12px;color:#6b7280;text-align:center}
 .foot a{color:#9aa3b2}
+.sec{margin-top:26px;padding-top:22px;border-top:1px solid #20242f}
+.sec h2{font-size:18px;margin:0 0 4px}
+.field{margin-top:14px}
+.field input[type=text],.field select{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #20242f;background:#0b0d13;color:#eef1f7;font:14px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+.field select{font-family:inherit}
+.field input.bad{border-color:#ff6b6b}
+.hint{font-size:12px;color:#6b7280;margin:5px 0 0}
+.pill{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#2a2f3c;color:#cfd5e1;margin-left:6px;vertical-align:middle}
+.pill.live{background:#1f4d27;color:#8ff59c}.pill.test{background:#4d3f12;color:#ffd75e}
+.ok{color:#5bd66a;font-size:14px;margin:12px 0 0;min-height:18px}
+.note{font-size:12.5px;color:#9aa3b2;background:#0b0d13;border:1px solid #20242f;border-radius:12px;padding:10px 12px;margin-top:14px}
 </style></head><body>
 <div class="card">
   <div id="login">
@@ -109,6 +137,40 @@ button{font:inherit;cursor:pointer}
     <p class="sub">Un cambio se aplica en todo el sitio y la app en ~20 segundos.</p>
     <div id="rows"></div>
     <p class="err" id="e2"></p>
+
+    <div class="sec" id="admob">
+      <h2>AdMob · Banner <span class="pill" id="adst">—</span></h2>
+      <p class="sub" style="margin:0">Banner de la app Android. Los cambios llegan a la app en ~1 minuto, sin publicar un APK nuevo.</p>
+      <div class="row" style="border-top:0">
+        <div><b>Mostrar banner</b><div class="st" id="adon">—</div></div>
+        <button class="sw" id="sw-en" aria-label="Mostrar banner"></button>
+      </div>
+      <div class="row">
+        <div><b>Modo prueba</b><div class="st" style="color:#9aa3b2">Anuncios de prueba de Google</div></div>
+        <button class="sw" id="sw-test" aria-label="Modo prueba"></button>
+      </div>
+      <div class="field">
+        <label for="appid">ID de la app (App ID)</label>
+        <input id="appid" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000~0000000000">
+        <p class="hint">AdMob → Apps → Configuración de la app. Lleva <b>~</b>.</p>
+      </div>
+      <div class="field">
+        <label for="unit">ID del bloque de anuncios (Banner)</label>
+        <input id="unit" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+        <p class="hint">AdMob → Bloques de anuncios → Banner. Lleva <b>/</b>.</p>
+      </div>
+      <div class="field">
+        <label for="pos">Posición</label>
+        <select id="pos"><option value="bottom">Abajo</option><option value="top">Arriba</option></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><b>Ocultar en el reproductor</b><div class="st" style="color:#9aa3b2">No mostrar mientras se ve un video</div></div>
+        <button class="sw" id="sw-play" aria-label="Ocultar en el reproductor"></button>
+      </div>
+      <p class="note" id="appnote">El App ID va dentro del APK: si lo cambias, se aplica en el próximo build de la app (Actions → App Android → Run workflow).</p>
+      <button class="btn" id="save">Guardar AdMob</button>
+      <p class="err" id="e3"></p><p class="ok" id="o3"></p>
+    </div>
     <p class="foot">Sesión solo en este dispositivo · <a href="#" id="out">Salir</a></p>
   </div>
 </div>
@@ -141,9 +203,45 @@ function render(flags){
     row.append(left,sw);box.append(row);
   }
 }
+const APP_RE=/^ca-app-pub-\\d{10,20}~\\d{6,14}$/,UNIT_RE=/^ca-app-pub-\\d{10,20}\\/\\d{6,14}$/;
+let ADS={};
+function setSw(el,on){el.classList.toggle('active',!!on);el.dataset.on=on?'1':''}
+function swOn(el){return el.dataset.on==='1'}
+function adsStatus(){
+  const en=swOn($('#sw-en')),test=swOn($('#sw-test'));
+  const st=$('#adst');
+  if(!en){st.textContent='Apagado';st.className='pill'}
+  else if(test){st.textContent='Prueba';st.className='pill test'}
+  else{st.textContent='En vivo';st.className='pill live'}
+  const on=$('#adon');on.textContent=en?'Activo':'Desactivado';on.className='st '+(en?'on':'off');
+}
+function renderAds(a){
+  ADS=a||{};
+  setSw($('#sw-en'),ADS.enabled);setSw($('#sw-test'),ADS.test!==false);setSw($('#sw-play'),ADS.hideOnPlayer!==false);
+  $('#appid').value=ADS.appId||'';$('#unit').value=ADS.bannerId||'';$('#pos').value=ADS.position||'bottom';
+  $('#appid').classList.remove('bad');$('#unit').classList.remove('bad');
+  adsStatus();
+}
+for(const id of ['#sw-en','#sw-test','#sw-play'])$(id).onclick=()=>{setSw($(id),!swOn($(id)));adsStatus();$('#o3').textContent=''};
+function checkField(el,re){const v=el.value.trim();const bad=!!v&&!re.test(v);el.classList.toggle('bad',bad);return !bad}
+$('#appid').oninput=()=>checkField($('#appid'),APP_RE);
+$('#unit').oninput=()=>checkField($('#unit'),UNIT_RE);
+$('#save').onclick=async()=>{
+  $('#e3').textContent='';$('#o3').textContent='';
+  if(!checkField($('#appid'),APP_RE)){$('#e3').textContent='Revisa el App ID (formato ca-app-pub-…~…)';return}
+  if(!checkField($('#unit'),UNIT_RE)){$('#e3').textContent='Revisa el ID del banner (formato ca-app-pub-…/…)';return}
+  const ads={enabled:swOn($('#sw-en')),test:swOn($('#sw-test')),hideOnPlayer:swOn($('#sw-play')),
+    appId:$('#appid').value.trim(),bannerId:$('#unit').value.trim(),position:$('#pos').value};
+  const appChanged=ads.appId!==(ADS.appId||'');
+  $('#save').disabled=true;
+  try{const d=await call({action:'ads',ads});renderAds(d.ads);
+    $('#o3').textContent=appChanged?'Guardado. El nuevo App ID se aplica en el próximo build del APK.':'Guardado ✓'}
+  catch(ex){if(ex.message==='401'){logout()}else{$('#e3').textContent=ex.message}}
+  finally{$('#save').disabled=false}
+};
 function logout(){KEY='';sessionStorage.removeItem('ax_admin');$('#panel').classList.add('hide');$('#login').classList.remove('hide');$('#e1').textContent='La sesión expiró, entra de nuevo.'}
 async function open(){
-  try{const d=await call({action:'get'});$('#login').classList.add('hide');$('#panel').classList.remove('hide');render(d.flags)}
+  try{const d=await call({action:'get'});$('#login').classList.add('hide');$('#panel').classList.remove('hide');render(d.flags);renderAds(d.ads)}
   catch(ex){if(ex.message==='401'){$('#e1').textContent='Clave incorrecta'}else{$('#e1').textContent=ex.message}KEY='';sessionStorage.removeItem('ax_admin')}
 }
 $('#enter').onclick=()=>{KEY=$('#k').value.trim();if(!KEY)return;sessionStorage.setItem('ax_admin',KEY);$('#enter').disabled=true;open().finally(()=>{$('#enter').disabled=false})};
