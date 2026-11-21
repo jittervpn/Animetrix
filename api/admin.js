@@ -120,6 +120,7 @@ button{font:inherit;cursor:pointer}
 .hint{font-size:12px;color:#6b7280;margin:5px 0 0}
 .pill{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;background:#2a2f3c;color:#cfd5e1;margin-left:6px;vertical-align:middle}
 .pill.live{background:#1f4d27;color:#8ff59c}.pill.test{background:#4d3f12;color:#ffd75e}
+.dirty{color:#ffd75e!important}
 .ok{color:#5bd66a;font-size:14px;margin:12px 0 0;min-height:18px}
 .note{font-size:12.5px;color:#9aa3b2;background:#0b0d13;border:1px solid #20242f;border-radius:12px;padding:10px 12px;margin-top:14px}
 </style></head><body>
@@ -167,8 +168,29 @@ button{font:inherit;cursor:pointer}
         <div><b>Ocultar en el reproductor</b><div class="st" style="color:#9aa3b2">No mostrar mientras se ve un video</div></div>
         <button class="sw" id="sw-play" aria-label="Ocultar en el reproductor"></button>
       </div>
+      <h2 style="margin-top:24px">Intersticial antes del video <span class="pill" id="inst">—</span></h2>
+      <p class="sub" style="margin:0">Anuncio de pantalla completa al tocar "Ver ahora" o un episodio. Cuando se cierra, empieza el video.</p>
+      <div class="row" style="border-top:0">
+        <div><b>Mostrar intersticial</b><div class="st" id="inon">—</div></div>
+        <button class="sw" id="sw-ien" aria-label="Mostrar intersticial"></button>
+      </div>
+      <div class="row">
+        <div><b>Modo prueba</b><div class="st" style="color:#9aa3b2">Solo para el intersticial</div></div>
+        <button class="sw" id="sw-itest" aria-label="Modo prueba del intersticial"></button>
+      </div>
+      <div class="field">
+        <label for="iunit">ID del bloque de anuncios (Intersticial)</label>
+        <input id="iunit" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ca-app-pub-0000000000000000/0000000000">
+        <p class="hint">AdMob → Bloques de anuncios → Intersticial. Lleva <b>/</b>.</p>
+      </div>
+      <div class="field">
+        <label for="ievery">Mostrar como máximo uno cada</label>
+        <select id="ievery"><option value="2">2 minutos</option><option value="5">5 minutos</option><option value="10">10 minutos</option><option value="15">15 minutos</option><option value="30">30 minutos</option><option value="60">1 hora</option></select>
+        <p class="hint">Así no sale un anuncio en cada episodio seguido (AdMob penaliza el exceso).</p>
+      </div>
       <p class="note" id="appnote">El App ID va dentro del APK: si lo cambias, se aplica en el próximo build de la app (Actions → App Android → Run workflow).</p>
       <button class="btn" id="save">Guardar AdMob</button>
+      <p class="hint" style="text-align:center">Los interruptores no se aplican hasta que tocas <b>Guardar AdMob</b>.</p>
       <p class="err" id="e3"></p><p class="ok" id="o3"></p>
     </div>
     <p class="foot">Sesión solo en este dispositivo · <a href="#" id="out">Salir</a></p>
@@ -207,7 +229,10 @@ const APP_RE=/^ca-app-pub-\\d{10,20}~\\d{6,14}$/,UNIT_RE=/^ca-app-pub-\\d{10,20}
 let ADS={};
 function setSw(el,on){el.classList.toggle('active',!!on);el.dataset.on=on?'1':''}
 function swOn(el){return el.dataset.on==='1'}
+function pill(el,en,test){if(!en){el.textContent='Apagado';el.className='pill'}else if(test){el.textContent='Prueba';el.className='pill test'}else{el.textContent='En vivo';el.className='pill live'}}
 function adsStatus(){
+  const ien=swOn($('#sw-ien'));pill($('#inst'),ien,swOn($('#sw-itest')));
+  const io=$('#inon');io.textContent=ien?'Activo':'Desactivado';io.className='st '+(ien?'on':'off');
   const en=swOn($('#sw-en')),test=swOn($('#sw-test'));
   const st=$('#adst');
   if(!en){st.textContent='Apagado';st.className='pill'}
@@ -218,20 +243,28 @@ function adsStatus(){
 function renderAds(a){
   ADS=a||{};
   setSw($('#sw-en'),ADS.enabled);setSw($('#sw-test'),ADS.test!==false);setSw($('#sw-play'),ADS.hideOnPlayer!==false);
+  setSw($('#sw-ien'),ADS.interEnabled);setSw($('#sw-itest'),ADS.interTest!==false);
+  $('#iunit').value=ADS.interId||'';$('#iunit').classList.remove('bad');
+  const ev=String(ADS.interEvery||5);$('#ievery').value=[...$('#ievery').options].some(o=>o.value===ev)?ev:'5';
   $('#appid').value=ADS.appId||'';$('#unit').value=ADS.bannerId||'';$('#pos').value=ADS.position||'bottom';
   $('#appid').classList.remove('bad');$('#unit').classList.remove('bad');
   adsStatus();
 }
-for(const id of ['#sw-en','#sw-test','#sw-play'])$(id).onclick=()=>{setSw($(id),!swOn($(id)));adsStatus();$('#o3').textContent=''};
+for(const id of ['#sw-en','#sw-test','#sw-play','#sw-ien','#sw-itest'])$(id).onclick=()=>{setSw($(id),!swOn($(id)));adsStatus();dirty()};
+function dirty(){const o=$('#o3');o.textContent='Tienes cambios sin guardar';o.className='ok dirty'}
+for(const id of ['#appid','#unit','#iunit','#pos','#ievery'])$(id).addEventListener('change',dirty);
 function checkField(el,re){const v=el.value.trim();const bad=!!v&&!re.test(v);el.classList.toggle('bad',bad);return !bad}
 $('#appid').oninput=()=>checkField($('#appid'),APP_RE);
 $('#unit').oninput=()=>checkField($('#unit'),UNIT_RE);
+$('#iunit').oninput=()=>checkField($('#iunit'),UNIT_RE);
 $('#save').onclick=async()=>{
-  $('#e3').textContent='';$('#o3').textContent='';
+  $('#e3').textContent='';$('#o3').textContent='';$('#o3').className='ok';
   if(!checkField($('#appid'),APP_RE)){$('#e3').textContent='Revisa el App ID (formato ca-app-pub-…~…)';return}
   if(!checkField($('#unit'),UNIT_RE)){$('#e3').textContent='Revisa el ID del banner (formato ca-app-pub-…/…)';return}
+  if(!checkField($('#iunit'),UNIT_RE)){$('#e3').textContent='Revisa el ID del intersticial (formato ca-app-pub-…/…)';return}
   const ads={enabled:swOn($('#sw-en')),test:swOn($('#sw-test')),hideOnPlayer:swOn($('#sw-play')),
-    appId:$('#appid').value.trim(),bannerId:$('#unit').value.trim(),position:$('#pos').value};
+    appId:$('#appid').value.trim(),bannerId:$('#unit').value.trim(),position:$('#pos').value,
+    interEnabled:swOn($('#sw-ien')),interTest:swOn($('#sw-itest')),interId:$('#iunit').value.trim(),interEvery:Number($('#ievery').value)};
   const appChanged=ads.appId!==(ADS.appId||'');
   $('#save').disabled=true;
   try{const d=await call({action:'ads',ads});renderAds(d.ads);

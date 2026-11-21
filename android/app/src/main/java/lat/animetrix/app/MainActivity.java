@@ -397,6 +397,9 @@ public class MainActivity extends Activity {
             // Todo lo demás es un anuncio o redirección → bloqueado.
             if (isOwnHttps(u) && "/compartir".equals(u.getPath())) { shareTitle(u); return true; }
             if (isOwnHttps(u) && "/app-accion".equals(u.getPath())) { appAction(u.getQueryParameter("a")); return true; }
+            // Antes de abrir el reproductor: intersticial de AdMob (si está activo y ya pasó el tiempo mínimo).
+            if (isOwnHttps(u) && u.getPath() != null && u.getPath().startsWith("/ver") && banner != null
+                && banner.showBeforePlayer(() -> { if (web != null) web.loadUrl(u.toString()); })) return true;
             if (isOwnHttps(u)) return false;
             if (isTelegram(u) && req.hasGesture()) { openExternal(u); return true; }
             // Fuera del reproductor, un toque en un anuncio de Google se abre en el navegador.

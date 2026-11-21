@@ -48,6 +48,7 @@ final class AdBanner {
     private final FrameLayout slot;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final SharedPreferences prefs;
+    private final AdInterstitial inter;
 
     private AdView adView;
     private String loadedUnit;
@@ -72,6 +73,12 @@ final class AdBanner {
         this.content = content;
         this.slot = slot;
         this.prefs = act.getSharedPreferences("ads", Activity.MODE_PRIVATE);
+        this.inter = new AdInterstitial(act, prefs);
+    }
+
+    /** Antes de abrir el reproductor: muestra el intersticial si toca (ver AdInterstitial). */
+    boolean showBeforePlayer(Runnable then) {
+        return inter.showBefore(then);
     }
 
     /** Arranca con la última config conocida y pide la actual al servidor. */
@@ -108,6 +115,7 @@ final class AdBanner {
     void onDestroy() {
         destroyed = true;
         ui.removeCallbacksAndMessages(null);
+        inter.onDestroy();
         dropAd();
     }
 
@@ -134,6 +142,10 @@ final class AdBanner {
 
     private void apply(JSONObject c) {
         if (destroyed) return;
+        JSONObject ic = c.optJSONObject("inter");
+        if (ic != null) startSdk();
+        inter.configure(ic, BuildConfig.ADMOB_APP_ID);
+
         boolean en = c.optBoolean("enabled", false);
         String u = c.optString("banner", "");
         boolean test = c.optBoolean("test", true);
