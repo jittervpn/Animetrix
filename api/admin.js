@@ -45,14 +45,19 @@ export default async function handler(req, res) {
   let b;
   try { b = await readBody(req); } catch { return sendJson(res, 400, { error: 'Petición no válida' }); }
 
-  // Solo leer el estado (al abrir el panel)
-  if (b.action === 'get') return sendJson(res, 200, { flags: await getFlags() });
+  try {
+    // Solo leer el estado (al abrir el panel)
+    if (b.action === 'get') return sendJson(res, 200, { flags: await getFlags() });
 
-  // Cambiar un interruptor
-  if (b.action === 'set' && TYPES.includes(b.type) && typeof b.on === 'boolean') {
-    const flags = await setFlag(b.type, b.on);
-    console.log(`[animetrix-admin] ${b.type} -> ${b.on ? 'ON' : 'OFF'}`);
-    return sendJson(res, 200, { flags });
+    // Cambiar un interruptor
+    if (b.action === 'set' && TYPES.includes(b.type) && typeof b.on === 'boolean') {
+      const flags = await setFlag(b.type, b.on);
+      console.log(`[animetrix-admin] ${b.type} -> ${b.on ? 'ON' : 'OFF'}`);
+      return sendJson(res, 200, { flags });
+    }
+  } catch (e) {
+    console.error('[animetrix-admin] error:', e.message);
+    return sendJson(res, 502, { error: 'No se pudo guardar el cambio, intenta de nuevo' });
   }
   return sendJson(res, 400, { error: 'Acción no válida' });
 }
