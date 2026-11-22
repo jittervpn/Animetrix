@@ -96,6 +96,19 @@ export default async function handler(req, res) {
   }) + `
 <main id="app" class="app watch-page" data-watch="${esc(watchData)}">
   ${playerOff ? '' : `<div class="player-wrap"><div class="player">
+    <div class="p-load" id="pLoad" role="status" aria-live="polite">
+      <span class="p-spin" aria-hidden="true"></span>
+      <b>Cargando video…</b>
+      <small>${esc(name)}${epLabel ? ' · ' + epLabel : ''}</small>
+    </div>
+    <div class="cine-bar" id="cineBar">
+      <a class="cine-btn" href="/app-accion?a=cine-off" aria-label="Salir de pantalla completa"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <div class="cine-t"><b>${esc(name)}</b>${epLabel ? `<span>${epLabel}</span>` : ''}</div>
+      ${prev ? `<a class="cine-btn" href="${esc(link(prev))}" aria-label="Episodio anterior"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 5l-9 7 9 7z"/></svg></a>` : ''}
+      ${next ? `<a class="cine-btn" href="${esc(link(next))}" aria-label="Siguiente episodio"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 5l9 7-9 7z"/></svg></a>` : ''}
+      <a class="cine-btn txt" href="/app-accion?a=cine-off">${type === 'movie' ? 'Detalles' : 'Episodios'}</a>
+    </div>
+    <button type="button" class="cine-handle" id="cineHandle" aria-label="Mostrar opciones"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
@@ -117,6 +130,7 @@ export default async function handler(req, res) {
       </div>
 <div class="watch-actions">
             <button class="btn ghost" type="button" id="favBtn" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg><span>Mi lista</span></button>
+      ${playerOff ? '' : `<a class="btn ghost cine-only" href="/app-accion?a=cine-on"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Ampliar</span></a>`}
       <button class="btn ghost" type="button" id="shareBtn" aria-label="Compartir"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg><span>Compartir</span></button>
       </div>
     </div>
