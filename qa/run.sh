@@ -4,7 +4,14 @@ set -u
 P=lat.animetrix.app
 OUT=qa/out; mkdir -p "$OUT"
 log(){ echo "== $*" | tee -a "$OUT/pasos.txt"; }
-shot(){ adb exec-out screencap -p > "$OUT/$1.png"; log "captura $1"; }
+# Cierra carteles del sistema ("no responde", educación de pantalla completa) antes de cada captura
+calm(){ adb shell uiautomator dump /sdcard/c.xml >/dev/null 2>&1
+  c=$(adb shell cat /sdcard/c.xml)
+  for t in "Wait" "Got it" "Entendido" "Esperar"; do
+    bb=$(echo "$c" | grep -oE "text=\"$t\"[^>]*bounds=\"\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]\"" | head -1 | grep -oE '[0-9]+' | tail -4 | tr '\n' ' ')
+    if [ -n "$bb" ]; then set -- $bb; adb shell input tap $(( ($1+$3)/2 )) $(( ($2+$4)/2 )); echo "== cerrado cartel: $t" >> "$OUT/pasos.txt"; sleep 1; fi
+  done; }
+shot(){ calm; adb exec-out screencap -p > "$OUT/$1.png"; log "captura $1"; }
 size=$(adb shell wm size | grep -oE '[0-9]+x[0-9]+' | tail -1); W=${size%x*}; H=${size#*x}
 log "pantalla $W x $H"
 # Toca el primer elemento con ese texto (accesibilidad del WebView incluida)
@@ -17,12 +24,15 @@ tap_text(){
 }
 gfx(){ adb shell dumpsys gfxinfo $P | sed -n '/Total frames rendered/,/Number Frame deadline missed/p' > "$OUT/gfx-$1.txt"; cat "$OUT/gfx-$1.txt" | tee -a "$OUT/pasos.txt"; }
 
+adb shell settings put secure immersive_mode_confirmations confirmed
+adb shell settings put global window_animation_scale 1
+log "esperando que el emulador se estabilice"; sleep 60; calm; adb shell input keyevent HOME; sleep 5; calm
 adb install -r app.apk 2>&1 | tee -a "$OUT/pasos.txt"
 adb shell pm grant $P android.permission.POST_NOTIFICATIONS 2>/dev/null
 adb logcat -c
 log "abrir app"; adb shell am start -W -n $P/.MainActivity | tee -a "$OUT/pasos.txt"
 sleep 30; shot 01-inicio
-tap_text "Continuar" bienvenida || tap_text "Empezar" bienvenida || adb shell input keyevent BACK
+tap_text "Empezar a ver" bienvenida || adb shell input keyevent BACK
 sleep 4; shot 02-inicio-sin-modal
 
 log "scroll inicio"; adb shell dumpsys gfxinfo $P reset >/dev/null
@@ -30,7 +40,7 @@ for i in 1 2 3 4 5 6; do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H
 for i in 1 2 3; do adb shell input swipe $((W/2)) $((H/4)) $((W/2)) $((H*3/4)) 250; sleep 1; done
 gfx scroll-inicio; shot 03-scroll
 
-log "abrir Anime"; tap_text "Anime" tab || true; sleep 8; shot 04-anime
+log "abrir Anime"; calm; tap_text "Anime" tab || true; sleep 8; shot 04-anime
 adb shell dumpsys gfxinfo $P reset >/dev/null
 for i in 1 2 3 4; do adb shell input swipe $((W/2)) $((H*3/4)) $((W/2)) $((H/4)) 250; sleep 1; done
 gfx scroll-anime
