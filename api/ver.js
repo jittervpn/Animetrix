@@ -106,6 +106,7 @@ export default async function handler(req, res) {
       <div class="cine-t"><b>${esc(name)}</b>${epLabel ? `<span>${epLabel}</span>` : ''}</div>
       ${prev ? `<a class="cine-btn" href="${esc(link(prev))}" aria-label="Episodio anterior"><svg viewBox="0 0 24 24"><path d="M6 5v14M18 5l-9 7 9 7z"/></svg></a>` : ''}
       ${next ? `<a class="cine-btn" href="${esc(link(next))}" aria-label="Siguiente episodio"><svg viewBox="0 0 24 24"><path d="M18 5v14M6 5l9 7-9 7z"/></svg></a>` : ''}
+      <a class="cine-btn" href="/app-accion?a=ajuste" aria-label="Ampliar o ajustar el video"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span class="cine-lbl">Ajuste</span></a>
       <a class="cine-btn txt" href="/app-accion?a=cine-off">${type === 'movie' ? 'Detalles' : 'Episodios'}</a>
     </div>
     <button type="button" class="cine-handle" id="cineHandle" aria-label="Mostrar opciones"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>

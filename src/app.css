@@ -610,16 +610,30 @@ html.has-cine .cine-only { display: inline-flex; }
 @media (orientation: landscape) and (max-height: 500px) {
   html.has-cine .cine-only { display: none; }
   html.has-cine .cine-bar { display: flex; position: absolute; z-index: 3; top: 0; left: 0; right: 0; align-items: center; gap: 8px;
-    padding: 10px 14px 28px; background: linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,0)); transition: opacity .3s ease, transform .3s ease; }
+    padding: 10px max(14px, env(safe-area-inset-right)) 28px max(14px, env(safe-area-inset-left)); background: linear-gradient(rgba(0,0,0,.85), rgba(0,0,0,0)); transition: opacity .3s ease, transform .3s ease; }
   html.has-cine .cine-bar.hide { opacity: 0; transform: translateY(-100%); pointer-events: none; }
-  html.has-cine .cine-handle { display: grid; place-items: center; position: absolute; z-index: 3; top: 10px; left: 12px; width: 36px; height: 36px;
+  html.has-cine .cine-handle { display: grid; place-items: center; position: absolute; z-index: 3; top: 8px; left: 50%; margin-left: -18px; width: 36px; height: 36px;
     border-radius: 50%; border: 0; background: rgba(0,0,0,.45); color: #fff; opacity: .7; transition: opacity .3s; }
   html.has-cine .cine-bar:not(.hide) ~ .cine-handle { opacity: 0; pointer-events: none; }
   .cine-handle svg, .cine-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .cine-btn { flex: none; display: inline-grid; place-items: center; min-width: 38px; height: 38px; padding: 0 10px; border-radius: 999px;
     background: rgba(255,255,255,.12); color: #fff; text-decoration: none; }
+  .cine-btn:has(.cine-lbl) { grid-auto-flow: column; gap: 6px; font-weight: 700; font-size: 13px; }
   .cine-btn.txt { font-weight: 700; font-size: 13px; background: var(--acc); color: #07080c; }
   .cine-t { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; color: #fff; }
   .cine-t b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cine-t span { flex: none; font-size: 12px; font-weight: 800; color: var(--acc); }
+}
+
+/* ---------- rendimiento en celulares ----------
+   El desenfoque de fondo (backdrop-filter) se recalcula en cada cuadro al hacer scroll y traba
+   los Android de gama media/baja; en pantallas táctiles se usan fondos sólidos. Tampoco se anima
+   sin fin la imagen grande del inicio. */
+@media (hover: none) {
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .btn.glass { background: rgba(20,22,30,.72); }
+  .hero-bg { animation: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-bg, .sk, .sk-t, .sk-hero { animation: none; }
 }
