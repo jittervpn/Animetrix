@@ -96,7 +96,7 @@ public class MainActivity extends Activity {
                 l = insets.getSystemWindowInsetLeft(); t = insets.getSystemWindowInsetTop();
                 r = insets.getSystemWindowInsetRight(); b = insets.getSystemWindowInsetBottom();
             }
-            if (fullscreenView != null) { l = t = r = b = 0; }   // video en pantalla completa: sin márgenes
+            if (fullscreenView != null || cine) { l = t = r = b = 0; }   // video en pantalla completa / modo cine: sin márgenes
             v.setPadding(l, t, r, b);
             return insets;
         });
@@ -174,6 +174,7 @@ public class MainActivity extends Activity {
         switch (a) {
             case "cine-on":  if (onPlayer) { cineWanted = true;  setCine(true); }  break;
             case "cine-off": if (onPlayer) { cineWanted = false; setCine(false); } break;
+            case "ajuste":   setFit(VideoFit.COVER.equals(currentFit()) ? VideoFit.CONTAIN : VideoFit.COVER, true); break;
             case "compartir": {
                 String text = "🍿 Mira películas, series y anime gratis en Animetrix\n\n📲 Descarga la app: https://www.animetrix.lat/app\n✈️ Canal: " + TELEGRAM;
                 Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -288,6 +289,13 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Aplica el ajuste guardado (Ampliar/Ajustar) al video en modo cine; se repite porque el reproductor carga después. */
+    private void fitCineSoon() {
+        for (long d : new long[] { 0, 1200, 3500, 8000 }) {
+            web.postDelayed(() -> { if (cine && fullscreenView == null) VideoFit.apply(web, currentFit()); }, d);
+        }
+    }
+
     private void setCine(boolean on) {
         cine = on;
         if (fullscreenView != null) return;   // el video nativo a pantalla completa manda; al salir se reaplica
@@ -295,15 +303,18 @@ public class MainActivity extends Activity {
     }
 
     private void applyCine() {
+        setCutoutMode(cine);   // en modo cine el video usa también la zona de la cámara
         if (cine) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setFullscreenBars(true);
+            fitCineSoon();
         } else {
             // En el reproductor fuera del modo cine: vertical, para ver la lista de episodios.
             setRequestedOrientation(onPlayer ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setFullscreenBars(false);
+            VideoFit.apply(web, VideoFit.CONTAIN);
         }
         if (banner != null) banner.setFullscreen(cine);
         root.requestApplyInsets();
@@ -466,6 +477,7 @@ public class MainActivity extends Activity {
 
         @Override
         public void onPageFinished(WebView view, String url) {
+            if (cine) fitCineSoon();
             hideLoader();
         }
 

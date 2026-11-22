@@ -39,13 +39,21 @@ final class VideoFit {
         "}catch(e){}}" +
         "function fitAll(){var v=document.getElementsByTagName('video');for(var i=0;i<v.length;i++)fitOne(v[i]);}" +
         "function relay(){var f=document.getElementsByTagName('iframe');for(var i=0;i<f.length;i++){try{f[i].contentWindow.postMessage({axFit:mode},'*');}catch(x){}}}" +
-        "var mo=null;function watch(){if(mo||!window.MutationObserver||!document.documentElement)return;" +
-        " mo=new MutationObserver(function(){if(mode==='cover')fitAll();});" +
-        " mo.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['style','class']});}" +
+        // Observador liviano: solo reacciona a <video> nuevos y a cambios de estilo del propio <video>
+        // (antes vigilaba toda la página, incluida la barra de progreso → tirones al reproducir).
+        "var mo=null,vo=null,pend=false;" +
+        "function sched(){if(pend)return;pend=true;(window.requestAnimationFrame||setTimeout)(function(){pend=false;if(mode==='cover')fitAll();});}" +
+        "function hasVideo(n){return n&&n.nodeType===1&&(n.nodeName==='VIDEO'||(n.getElementsByTagName&&n.getElementsByTagName('video').length>0));}" +
+        "function rewatch(){if(vo)vo.disconnect();vo=new MutationObserver(sched);var v=document.getElementsByTagName('video');" +
+        " for(var i=0;i<v.length;i++)vo.observe(v[i],{attributes:true,attributeFilter:['style','class']});}" +
+        "function watch(){if(mo||!window.MutationObserver||!document.documentElement)return;" +
+        " mo=new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;" +
+        "  for(var j=0;a&&j<a.length;j++){if(hasVideo(a[j])){rewatch();sched();return;}}}});" +
+        " mo.observe(document.documentElement,{subtree:true,childList:true});rewatch();}" +
         "window.addEventListener('message',function(e){var d=e.data;" +
         " if(!d||typeof d!=='object'||!d.axFit||e.source!==window.parent)return;" +
         " mode=d.axFit==='cover'?'cover':'contain';" +
-        " if(mo){mo.disconnect();mo=null;} fitAll(); relay(); if(mode==='cover')watch();});" +
+        " if(mo){mo.disconnect();mo=null;} if(vo){vo.disconnect();vo=null;} fitAll(); relay(); if(mode==='cover')watch();});" +
         "document.addEventListener('fullscreenchange',function(){fitAll();});" +
         "document.addEventListener('webkitfullscreenchange',function(){fitAll();});" +
         "})();";
