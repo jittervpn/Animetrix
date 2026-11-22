@@ -1,0 +1,34 @@
+name: QA emulador (temporal)
+on:
+  push:
+    branches: [qa-emulador]
+permissions:
+  contents: write
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Descargar el APK publicado
+        run: curl -fsSL -o app.apk https://github.com/jittervpn/Animetrix/releases/latest/download/Animetrix.apk && ls -la app.apk
+      - name: Recorrer la app en el emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash qa/run.sh
+      - name: Guardar resultados en rama qa-emulador-out
+        if: always()
+        run: |
+          cd qa/out && git init -q && git checkout -q -b qa-emulador-out
+          git add -A && git -c user.name=bot -c user.email=bot@users.noreply.github.com commit -qm "resultados QA"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" qa-emulador-out
