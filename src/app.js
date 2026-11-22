@@ -497,6 +497,7 @@
     const eps = $('.episodes'); if (eps) bindSeasonTabs(eps);
     $('#shareBtn')?.addEventListener('click', () => share(w));
     initPlayer();
+    initPlayerUi();
     const cur = $('.ep-list a[aria-current]');
     const list = cur?.closest('.ep-list');
     if (cur && list && list.scrollHeight > list.clientHeight) list.scrollTop = cur.offsetTop - list.offsetTop - 8;
@@ -528,6 +529,26 @@
 
   const IN_APP = /AnimetrixApp\//.test(navigator.userAgent);
   if (IN_APP) document.documentElement.classList.add('in-app');
+  if (/AnimetrixCine\//.test(navigator.userAgent)) document.documentElement.classList.add('has-cine');
+
+  /* Pantalla "Cargando video…" sobre el reproductor + barra del modo cine (se esconde sola). */
+  function initPlayerUi() {
+    const frame = $('#player'); const load = $('#pLoad');
+    if (frame && load) {
+      let done = false;
+      const hide = () => { if (done) return; done = true; setTimeout(() => load.classList.add('done'), 500); };
+      if (document.readyState === 'complete') hide(); else frame.addEventListener('load', hide);
+      window.addEventListener('load', hide);
+      setTimeout(hide, 15000);   // por si el reproductor nunca avisa
+    }
+    const bar = $('#cineBar'); const handle = $('#cineHandle');
+    if (bar && handle) {
+      let t;
+      const show = () => { bar.classList.remove('hide'); clearTimeout(t); t = setTimeout(() => bar.classList.add('hide'), 4000); };
+      handle.addEventListener('click', show);
+      show();
+    }
+  }
 
   function initPlayer() {
     if (!IN_APP) adShield();

@@ -114,7 +114,8 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         // El tamaño de letra del sistema descuadraba el diseño en celulares con letra grande.
         s.setTextZoom(100);
-        s.setUserAgentString(s.getUserAgentString() + " AnimetrixApp/" + BuildConfig.VERSION_NAME);
+        // AnimetrixCine/1: la web muestra la barra del modo cine y el botón "Ampliar" (solo en versiones que lo soportan).
+        s.setUserAgentString(s.getUserAgentString() + " AnimetrixApp/" + BuildConfig.VERSION_NAME + " AnimetrixCine/1");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) s.setSafeBrowsingEnabled(true);
 
         CookieManager cookies = CookieManager.getInstance();
@@ -171,6 +172,8 @@ public class MainActivity extends Activity {
     private void appAction(String a) {
         if (a == null) return;
         switch (a) {
+            case "cine-on":  if (onPlayer) { cineWanted = true;  setCine(true); }  break;
+            case "cine-off": if (onPlayer) { cineWanted = false; setCine(false); } break;
             case "compartir": {
                 String text = "🍿 Mira películas, series y anime gratis en Animetrix\n\n📲 Descarga la app: https://www.animetrix.lat/app\n✈️ Canal: " + TELEGRAM;
                 Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
@@ -264,11 +267,46 @@ public class MainActivity extends Activity {
     /** true mientras se ve la página del reproductor (/ver): solo ahí actúa el bloqueador de anuncios. */
     private volatile boolean onPlayer;
 
+    // Modo cine: al abrir un capítulo (/ver) la app pasa sola a horizontal y pantalla completa.
+    private boolean cine;           // estado aplicado
+    private boolean cineWanted = true;
+    private String cineUrl;         // página /ver actual (un capítulo nuevo vuelve a activar el modo cine)
+
     private void trackPage(String url) {
         if (url == null) return;
         Uri u = Uri.parse(url);
+        boolean wasPlayer = onPlayer;
         onPlayer = isOwnHost(u.getHost()) && u.getPath() != null && u.getPath().startsWith("/ver");
         if (banner != null) banner.setOnPlayer(onPlayer);
+        if (onPlayer) {
+            if (!url.equals(cineUrl)) { cineUrl = url; cineWanted = true; }
+            setCine(cineWanted);
+        } else {
+            cineUrl = null;
+            setCine(false);
+            if (wasPlayer && fullscreenView == null) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        }
+    }
+
+    private void setCine(boolean on) {
+        cine = on;
+        if (fullscreenView != null) return;   // el video nativo a pantalla completa manda; al salir se reaplica
+        applyCine();
+    }
+
+    private void applyCine() {
+        if (cine) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            setFullscreenBars(true);
+        } else {
+            // En el reproductor fuera del modo cine: vertical, para ver la lista de episodios.
+            setRequestedOrientation(onPlayer ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            setFullscreenBars(false);
+        }
+        if (banner != null) banner.setFullscreen(cine);
+        root.requestApplyInsets();
     }
 
     /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaCat)? */
@@ -543,12 +581,16 @@ public class MainActivity extends Activity {
         setCutoutMode(false);
         VideoFit.apply(web, VideoFit.CONTAIN);
         web.setVisibility(View.VISIBLE);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(false));
-        setFullscreenBars(false);
-        if (banner != null) banner.setFullscreen(false);
-        root.requestApplyInsets();
+        if (onPlayer) {
+            applyCine();   // vuelve al modo cine (horizontal) o a vertical, según estaba
+        } else {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            setFullscreenBars(false);
+            if (banner != null) banner.setFullscreen(false);
+            root.requestApplyInsets();
+        }
         if (fullscreenCallback != null) { fullscreenCallback.onCustomViewHidden(); fullscreenCallback = null; }
     }
 
@@ -599,6 +641,8 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (fullscreenView != null) { exitFullscreen(); return; }
+        // Atrás en modo cine: primero vuelve a la vista vertical con los episodios.
+        if (onPlayer && cine) { cineWanted = false; setCine(false); return; }
         if (offline.getVisibility() == View.VISIBLE && isOnline()) { retry(); return; }
         if (web.canGoBack()) { web.goBack(); return; }
         long now = System.currentTimeMillis();
