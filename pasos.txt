@@ -1,0 +1,34 @@
+== pantalla 1080 x 2400
+== esperando que el emulador se estabilice
+Performing Streamed Install
+Success
+== abrir app
+Starting: Intent { cmp=lat.animetrix.app/.MainActivity }
+Status: ok
+LaunchState: COLD
+Activity: lat.animetrix.app/.MainActivity
+TotalTime: 2304
+WaitTime: 2324
+Complete
+== captura 01-inicio
+== NO encontrado: Empezar a ver
+== captura 02-inicio-sin-modal
+== scroll inicio
+== captura 03-scroll
+== abrir Anime
+== NO encontrado: Anime
+== captura 04-anime
+== abrir capítulo (enlace directo)
+== captura 05-ver-cine
+== tocar play
+== captura 06-reproduciendo
+== captura 07-reproduciendo-20s
+== tocar menú ☰ y Ajuste
+== NO encontrado: Mostrar opciones
+== captura 08-barra
+== NO encontrado: Ampliar o ajustar el video
+== captura 09-ajuste
+== atrás (sale del modo cine)
+== captura 10-vertical
+== atrás (vuelve)
+== captura 11-atras
