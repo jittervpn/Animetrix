@@ -542,6 +542,17 @@
       s.src = RWD_URL + '/sdk.js'; s.async = true;
       s.onload = () => { try { window.RemoteWebviewDebugger.run(RWD_URL, RWD_KEY); } catch (e) { console.error('[rwd]', e); } };
       document.head.append(s);
+      // Medidor de fluidez (solo con la depuración activa): cada 5 s anota en la consola los cuadros
+      // por segundo, los cuadros lentos (>50 ms) y las tareas largas que congelan la pantalla.
+      let frames = 0, slow = 0, worst = 0, last = performance.now(), longT = 0, longMs = 0;
+      const tick = (t) => { const d = t - last; last = t; frames++; if (d > 50) slow++; if (d > worst) worst = d; requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) { longT++; longMs += e.duration; } }).observe({ type: 'longtask', buffered: true }); } catch { /* sin soporte */ }
+      setInterval(() => {
+        if (document.hidden) { frames = slow = worst = longT = longMs = 0; return; }
+        console.info(`[fluidez] ${location.pathname}${location.hash} · ${Math.round(frames / 5)} fps · cuadros lentos: ${slow} · peor cuadro: ${Math.round(worst)} ms · tareas largas: ${longT} (${Math.round(longMs)} ms) · scrollY: ${Math.round(scrollY)}`);
+        frames = slow = worst = longT = longMs = 0;
+      }, 5000);
     } catch { /* sin almacenamiento */ }
   })();
 
