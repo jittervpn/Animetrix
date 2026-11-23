@@ -5,7 +5,7 @@ import { extname, join, normalize } from 'node:path';
 
 const ROOT = new URL('../public/', import.meta.url).pathname;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain' };
-const ROUTES = { '/ver': '../api/ver.js', '/ver.php': '../api/ver.js', '/api/ver': '../api/ver.js', '/api/data': '../api/data.js', '/sitemap.xml': '../api/sitemap.js', '/api/notify': '../api/notify.js', '/abrir': '../api/abrir.js', '/api/pedido': '../api/pedido.js', '/compartir': '../api/compartir.js', '/admin': '../api/admin.js', '/api/admin': '../api/admin.js', '/api/app-config': '../api/app-config.js', '/app-ads.txt': '../api/app-ads.js' };
+const ROUTES = { '/ver': '../api/ver.js', '/ver.php': '../api/ver.js', '/api/ver': '../api/ver.js', '/api/data': '../api/data.js', '/sitemap.xml': '../api/sitemap.js', '/api/notify': '../api/notify.js', '/abrir': '../api/abrir.js', '/api/pedido': '../api/pedido.js', '/compartir': '../api/compartir.js', '/admin': '../api/admin.js', '/api/admin': '../api/admin.js', '/api/app-config': '../api/app-config.js', '/app-ads.txt': '../api/app-ads.js', '/api/reporte': '../api/reporte.js' };
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
