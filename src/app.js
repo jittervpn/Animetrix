@@ -527,6 +527,24 @@
     } catch { /* sin history API */ }
   }
 
+  /* ---------- depuración remota (TEMPORAL) ----------
+     Solo se activa en el celular que abre animetrix.lat/#depurar (y se apaga con #depurar-off).
+     Carga el SDK de remote-webview-debugger desde nuestro servidor del depurador; nada se comparte
+     hasta que el usuario toca "Solicitar asistencia" y aprueba en su propio celular. */
+  const RWD_URL = 'https://sb-1k4v5fwdi70a.vercel.run/v1';
+  const RWD_KEY = 'rwd_pk_gNyUv7hu8WdkJiJXLsXP9cyP';
+  (function rwd() {
+    try {
+      if (location.hash === '#depurar') { localStorage.setItem('ax_rwd', '1'); history.replaceState(null, '', '/'); }
+      if (location.hash === '#depurar-off') { localStorage.removeItem('ax_rwd'); history.replaceState(null, '', '/'); return; }
+      if (localStorage.getItem('ax_rwd') !== '1') return;
+      const s = document.createElement('script');
+      s.src = RWD_URL + '/sdk.js'; s.async = true;
+      s.onload = () => { try { window.RemoteWebviewDebugger.run(RWD_URL, RWD_KEY); } catch (e) { console.error('[rwd]', e); } };
+      document.head.append(s);
+    } catch { /* sin almacenamiento */ }
+  })();
+
   const IN_APP = /AnimetrixApp\//.test(navigator.userAgent);
   if (IN_APP) document.documentElement.classList.add('in-app');
   if (/AnimetrixCine\//.test(navigator.userAgent)) document.documentElement.classList.add('has-cine');
