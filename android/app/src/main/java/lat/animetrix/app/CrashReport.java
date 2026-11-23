@@ -64,6 +64,23 @@ final class CrashReport {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("last_url", url).apply();
     }
 
+    /** Envía ya un aviso de memoria (la guardia recargó el reproductor o hubo un pico alto). */
+    static void memoryNow(Context ctx, String kind, long rssKb, long limitKb, String url) {
+        Context app = ctx.getApplicationContext();
+        new Thread(() -> {
+            try {
+                ActivityManager am = (ActivityManager) app.getSystemService(Context.ACTIVITY_SERVICE);
+                ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo(); am.getMemoryInfo(mi);
+                JSONArray items = new JSONArray().put(new JSONObject().put("kind", kind).put("reason", "MEMORY")
+                    .put("rssKb", rssKb).put("pssKb", limitKb).put("at", System.currentTimeMillis()).put("url", url)
+                    .put("desc", "libre del sistema: " + (mi.availMem / (1024 * 1024)) + " MB"));
+                post(new JSONObject().put("v", BuildConfig.VERSION_NAME).put("sdk", Build.VERSION.SDK_INT)
+                    .put("model", Build.MANUFACTURER + " " + Build.MODEL).put("ramMb", mi.totalMem / (1024 * 1024))
+                    .put("lowRam", am.isLowRamDevice()).put("items", items).toString());
+            } catch (Throwable ignored) { }
+        }, "animetrix-diag-mem").start();
+    }
+
     /** Junta lo pendiente y lo envía en segundo plano. */
     static void sendPending(Context ctx) {
         Context app = ctx.getApplicationContext();

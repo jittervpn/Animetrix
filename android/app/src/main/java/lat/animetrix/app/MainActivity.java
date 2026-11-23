@@ -66,7 +66,58 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
 
     private AdBanner banner;
-    private String crashUrl;        // página a recargar si el motor web se cierra por falta de memoria
+    private String crashUrl;
+
+    /* Guardia de memoria: algunos reproductores acumulan memoria al pausar/reanudar hasta que Android
+       cierra la app (LOW_MEMORY con 1,6 GB en un moto g05). Mientras se ve un video, la app mide su
+       propio consumo y, si se acerca al límite, recarga el reproductor para liberarla. */
+    private final android.os.Handler memHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private long memLimitKb, memPeakKb, memQuietUntil;
+    private boolean memRunning;
+    private final Runnable memCheck = new Runnable() {
+        @Override public void run() {
+            memRunning = false;
+            if (!onPlayer || web == null || isFinishing()) return;
+            long rss = rssKb();
+            if (rss > memPeakKb) memPeakKb = rss;
+            long now = System.currentTimeMillis();
+            if (rss > memLimitKb && now > memQuietUntil) {
+                memQuietUntil = now + 25_000;   // dar tiempo a que baje antes de volver a medir
+                String url = web.getUrl();
+                CrashReport.memoryNow(MainActivity.this, "guard", rss, memLimitKb, url);
+                if (fullscreenView != null) exitFullscreen();
+                web.reload();
+                toast("La memoria del celular se estaba llenando: se recargó el video.");
+            }
+            memRunning = true;
+            memHandler.postDelayed(this, 3000);
+        }
+    };
+
+    private void memWatch(boolean on) {
+        memHandler.removeCallbacks(memCheck);
+        memRunning = false;
+        if (on && onPlayer) {
+            if (memLimitKb == 0) {
+                android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+                android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi);
+                long total = mi.totalMem / 1024;   // KB
+                memLimitKb = Math.max(600_000L, Math.min(2_000_000L, total / 3));
+            }
+            memRunning = true;
+            memHandler.postDelayed(memCheck, 3000);
+        }
+    }
+
+    /** Memoria residente de la app (KB), leída de /proc/self/statm. */
+    private static long rssKb() {
+        try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.FileReader("/proc/self/statm"))) {
+            String[] f = r.readLine().trim().split("\\s+");
+            long pages = Long.parseLong(f[1]);
+            long page = android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE);
+            return pages * page / 1024;
+        } catch (Throwable t) { return 0; }
+    }        // página a recargar si el motor web se cierra por falta de memoria
     private long lastBackPress;
     private long lastAdToast;
 
@@ -293,7 +344,13 @@ public class MainActivity extends Activity {
         if (onPlayer) {
             if (!url.equals(cineUrl)) { cineUrl = url; cineWanted = true; }
             setCine(cineWanted);
+            if (!memRunning) { memPeakKb = 0; memWatch(true); }
         } else {
+            if (wasPlayer) {
+                memWatch(false);
+                if (memPeakKb > 700_000L) CrashReport.memoryNow(this, "peak", memPeakKb, memLimitKb, cineUrl);
+                memPeakKb = 0;
+            }
             cineUrl = null;
             setCine(false);
             if (wasPlayer && fullscreenView == null) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
@@ -698,13 +755,15 @@ public class MainActivity extends Activity {
     @Override protected void onPause() {
         super.onPause();
         boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
-        if (!pip && web != null) web.onPause();   // en imagen en imagen el video sigue reproduciéndose
+        if (!pip && web != null) web.onPause();
+        if (!pip) memWatch(false);   // en imagen en imagen el video sigue reproduciéndose
         if (banner != null) banner.onPause();
         CookieManager.getInstance().flush();
     }
     @Override protected void onResume() {
         super.onResume();
         if (web != null) web.onResume();
+        memWatch(true);
         if (banner != null) banner.onResume();
     }
 
