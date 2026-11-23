@@ -67,6 +67,7 @@ final class AdBanner {
     private boolean onPlayer;
     private boolean fullscreen;
     private boolean destroyed;
+    private boolean activityPaused;
 
     AdBanner(Activity act, LinearLayout content, FrameLayout slot) {
         this.act = act;
@@ -104,11 +105,13 @@ final class AdBanner {
     }
 
     void onResume() {
-        if (adView != null) adView.resume();
+        activityPaused = false;
+        updateVisibility();   // reanuda el banner solo si está a la vista
         if (System.currentTimeMillis() - fetchedAt > REFRESH_MS) refresh();
     }
 
     void onPause() {
+        activityPaused = true;
         if (adView != null) adView.pause();
     }
 
@@ -123,6 +126,7 @@ final class AdBanner {
     void setOnPlayer(boolean player) {
         if (onPlayer == player) return;
         onPlayer = player;
+        inter.setOnPlayer(player);
         updateVisibility();
     }
 
@@ -220,6 +224,8 @@ final class AdBanner {
     private void updateVisibility() {
         boolean show = enabled && adView != null && loaded && !fullscreen && !(hideOnPlayer && onPlayer);
         slot.setVisibility(show ? View.VISIBLE : View.GONE);
+        // Oculto (reproductor, pantalla completa): se pausa para no cargar anuncios ni gastar memoria.
+        if (adView != null) { if (show && !activityPaused) adView.resume(); else adView.pause(); }
     }
 
     private int widthDp() {
