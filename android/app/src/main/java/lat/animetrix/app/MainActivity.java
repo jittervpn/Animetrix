@@ -74,6 +74,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Diagnóstico de cierres: guarda los errores y envía el motivo del último cierre.
+        CrashReport.installHandler(this);
+        CrashReport.sendPending(this);
         setContentView(R.layout.activity_main);
 
         root = findViewById(R.id.root);
@@ -284,6 +287,7 @@ public class MainActivity extends Activity {
         if (url == null) return;
         Uri u = Uri.parse(url);
         boolean wasPlayer = onPlayer;
+        CrashReport.page(this, url);
         onPlayer = isOwnHost(u.getHost()) && u.getPath() != null && u.getPath().startsWith("/ver");
         if (banner != null) banner.setOnPlayer(onPlayer);
         if (onPlayer) {
@@ -506,6 +510,8 @@ public class MainActivity extends Activity {
             // El motor web se cerró (poca memoria): se reinicia la pantalla en vez de cerrar la app.
             // Antes, después de web = null otras partes seguían usando el visor y la app se cerraba.
             String url = view.getUrl();
+            if (Build.VERSION.SDK_INT >= 26) CrashReport.rendererGone(MainActivity.this, detail.didCrash(), detail.rendererPriorityAtExit(), url);
+            else CrashReport.rendererGone(MainActivity.this, false, -1, url);
             android.content.SharedPreferences ap = getSharedPreferences("app", MODE_PRIVATE);
             long now = System.currentTimeMillis();
             boolean again = now - ap.getLong("render_gone_at", 0) < 60_000;   // se repite: mejor volver al inicio
