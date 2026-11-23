@@ -81,7 +81,12 @@ public class MainActivity extends Activity {
             long rss = rssKb();
             if (rss > memPeakKb) memPeakKb = rss;
             long now = System.currentTimeMillis();
-            if (rss > memLimitKb && now > memQuietUntil) {
+            // Memoria libre del celular entero: si Android está por quedarse sin memoria, también se actúa.
+            android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+            android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi);
+            long availKb = mi.availMem / 1024, minFreeKb = Math.max(mi.threshold / 1024 + 150_000L, 350_000L);
+            CrashReport.sample(MainActivity.this, rss, availKb);
+            if ((rss > memLimitKb || mi.lowMemory || availKb < minFreeKb) && now > memQuietUntil) {
                 memQuietUntil = now + 25_000;   // dar tiempo a que baje antes de volver a medir
                 String url = web.getUrl();
                 CrashReport.memoryNow(MainActivity.this, "guard", rss, memLimitKb, url);
@@ -90,7 +95,7 @@ public class MainActivity extends Activity {
                 toast("La memoria del celular se estaba llenando: se recargó el video.");
             }
             memRunning = true;
-            memHandler.postDelayed(this, 3000);
+            memHandler.postDelayed(this, 1000);
         }
     };
 
@@ -105,7 +110,7 @@ public class MainActivity extends Activity {
                 memLimitKb = Math.max(600_000L, Math.min(2_000_000L, total / 3));
             }
             memRunning = true;
-            memHandler.postDelayed(memCheck, 3000);
+            memHandler.postDelayed(memCheck, 1000);
         }
     }
 

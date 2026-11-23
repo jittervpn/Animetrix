@@ -64,6 +64,17 @@ final class CrashReport {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("last_url", url).apply();
     }
 
+    // Historial de memoria en el reproductor: últimas 40 mediciones (cada ~1 s se toma, cada 4 s se guarda).
+    private static final java.util.ArrayDeque<String> samples = new java.util.ArrayDeque<>();
+    private static int sampleCount;
+    static void sample(Context ctx, long rssKb, long availKb) {
+        samples.addLast((System.currentTimeMillis() / 1000 % 100000) + ":" + (rssKb / 1024) + "/" + (availKb / 1024));
+        while (samples.size() > 40) samples.removeFirst();
+        if (++sampleCount % 4 == 0) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("mem_tl", String.join(" ", samples)).apply();
+        }
+    }
+
     /** Envía ya un aviso de memoria (la guardia recargó el reproductor o hubo un pico alto). */
     static void memoryNow(Context ctx, String kind, long rssKb, long limitKb, String url) {
         Context app = ctx.getApplicationContext();
@@ -98,6 +109,7 @@ final class CrashReport {
                     items.put(new JSONObject().put("kind", "renderer").put("reason", a[0]).put("sub", a.length > 1 ? a[1] : "").put("at", p.getLong("render_gone_at", 0)).put("url", a.length > 2 ? a[2] : ""));
                 }
 
+                String tl = p.getString("mem_tl", null);
                 long since = p.getLong("exit_seen", 0), newest = since;
                 if (Build.VERSION.SDK_INT >= 30) {
                     ActivityManager am = (ActivityManager) app.getSystemService(Context.ACTIVITY_SERVICE);
@@ -106,6 +118,8 @@ final class CrashReport {
                         if (e.getTimestamp() <= since) continue;
                         newest = Math.max(newest, e.getTimestamp());
                         int r = e.getReason();
+                        String d = e.getDescription();
+                        if (d != null && d.contains("isolated not needed")) continue;   // proceso auxiliar del navegador: normal
                         if (r == ApplicationExitInfo.REASON_USER_REQUESTED || r == ApplicationExitInfo.REASON_EXIT_SELF
                             || r == ApplicationExitInfo.REASON_PACKAGE_UPDATED || r == ApplicationExitInfo.REASON_USER_STOPPED) continue;
                         JSONObject o = new JSONObject().put("kind", "exit").put("reason", reasonName(r))
@@ -113,6 +127,8 @@ final class CrashReport {
                             .put("pssKb", e.getPss()).put("rssKb", e.getRss()).put("at", e.getTimestamp())
                             .put("desc", e.getDescription() == null ? "" : e.getDescription()).put("url", lastUrl);
                         if (r == ApplicationExitInfo.REASON_ANR || r == ApplicationExitInfo.REASON_CRASH_NATIVE) o.put("trace", readTrace(e));
+                        // Cierre por memoria: se adjunta cómo creció (seg:MB app/MB libres del celular).
+                        else if (tl != null && (r == ApplicationExitInfo.REASON_LOW_MEMORY || r == ApplicationExitInfo.REASON_SIGNALED || r == ApplicationExitInfo.REASON_OTHER)) o.put("trace", "memoria " + tl);
                         items.put(o);
                     }
                 }
@@ -124,7 +140,7 @@ final class CrashReport {
                     .put("model", Build.MANUFACTURER + " " + Build.MODEL).put("ramMb", mi.totalMem / (1024 * 1024))
                     .put("lowRam", am.isLowRamDevice()).put("items", items);
                 if (post(body.toString())) {
-                    p.edit().remove("java_crash").remove("render_gone").putLong("exit_seen", newest).apply();
+                    p.edit().remove("java_crash").remove("render_gone").remove("mem_tl").putLong("exit_seen", newest).apply();
                 }
             } catch (Throwable ignored) { }
         }, "animetrix-diag").start();
