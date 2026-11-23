@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
        cierra la app (LOW_MEMORY con 1,6 GB en un moto g05). Mientras se ve un video, la app mide su
        propio consumo y, si se acerca al límite, recarga el reproductor para liberarla. */
     private final android.os.Handler memHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    private long memLimitKb, memPeakKb, memQuietUntil;
+    private long memLimitKb, memPeakKb, memQuietUntil, memBaseAvailKb;
     private boolean memRunning;
     private final Runnable memCheck = new Runnable() {
         @Override public void run() {
@@ -84,15 +84,20 @@ public class MainActivity extends Activity {
             // Memoria libre del celular entero: si Android está por quedarse sin memoria, también se actúa.
             android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
             android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo(); am.getMemoryInfo(mi);
-            long availKb = mi.availMem / 1024, minFreeKb = Math.max(mi.threshold / 1024 + 150_000L, 350_000L);
+            // El reproductor corre en otro proceso: lo que se llena es la memoria libre del celular
+            // (en un moto g05 bajó ~13 MB/s con "Free vip" hasta que Android cerró la app con ~370 MB libres).
+            long availKb = mi.availMem / 1024, minFreeKb = Math.max(mi.threshold / 1024 + 300_000L, 600_000L);
+            if (availKb > memBaseAvailKb) memBaseAvailKb = availKb;
+            boolean draining = memBaseAvailKb - availKb > 450_000L;   // perdió más de 450 MB desde que empezó el video
             CrashReport.sample(MainActivity.this, rss, availKb);
-            if ((rss > memLimitKb || mi.lowMemory || availKb < minFreeKb) && now > memQuietUntil) {
+            if ((rss > memLimitKb || mi.lowMemory || availKb < minFreeKb || draining) && now > memQuietUntil) {
                 memQuietUntil = now + 25_000;   // dar tiempo a que baje antes de volver a medir
+                memBaseAvailKb = 0;             // nueva referencia después de recargar
                 String url = web.getUrl();
                 CrashReport.memoryNow(MainActivity.this, "guard", rss, memLimitKb, url);
                 if (fullscreenView != null) exitFullscreen();
                 web.reload();
-                toast("La memoria del celular se estaba llenando: se recargó el video.");
+                toast("El reproductor estaba llenando la memoria del celular: se recargó el video. Si se repite, usa el servidor Latino HD.");
             }
             memRunning = true;
             memHandler.postDelayed(this, 1000);
@@ -349,7 +354,7 @@ public class MainActivity extends Activity {
         if (onPlayer) {
             if (!url.equals(cineUrl)) { cineUrl = url; cineWanted = true; }
             setCine(cineWanted);
-            if (!memRunning) { memPeakKb = 0; memWatch(true); }
+            if (!memRunning) { memPeakKb = 0; memBaseAvailKb = 0; memWatch(true); }
         } else {
             if (wasPlayer) {
                 memWatch(false);
