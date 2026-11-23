@@ -66,6 +66,7 @@ public class MainActivity extends Activity {
     private WebChromeClient.CustomViewCallback fullscreenCallback;
 
     private AdBanner banner;
+    private String crashUrl;        // página a recargar si el motor web se cierra por falta de memoria
     private long lastBackPress;
     private long lastAdToast;
 
@@ -139,7 +140,12 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new SafeClient());
         web.setWebChromeClient(new Chrome());
 
-        if (savedInstanceState != null) {
+        String reload = savedInstanceState == null ? null : savedInstanceState.getString("ax_reload");
+        if (reload != null) {
+            // El motor web se cerró por falta de memoria: se vuelve a la misma página (o al inicio si se repite).
+            web.loadUrl(reload);
+            toast("El celular se quedó sin memoria: se recargó la página.");
+        } else if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
             web.loadUrl(startUrl(getIntent()));
@@ -207,6 +213,7 @@ public class MainActivity extends Activity {
             }
             case "limpiar": {
                 // Solo la caché de imágenes y páginas: "Mi lista" y el historial se conservan.
+                if (web == null) break;
                 web.clearCache(true);
                 toast("🧹 Caché borrada. Tu lista y tu historial se conservan.");
                 web.loadUrl(HOME);
@@ -247,7 +254,7 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         Uri data = intent.getData();
-        if (data != null && isOwnHttps(data)) web.loadUrl(data.toString());
+        if (data != null && isOwnHttps(data) && web != null) web.loadUrl(data.toString());
     }
 
     private String startUrl(Intent intent) {
@@ -291,6 +298,7 @@ public class MainActivity extends Activity {
 
     /** Aplica el ajuste guardado (Ampliar/Ajustar) al video en modo cine; se repite porque el reproductor carga después. */
     private void fitCineSoon() {
+        if (web == null) return;
         for (long d : new long[] { 0, 1200, 3500, 8000 }) {
             web.postDelayed(() -> { if (cine && fullscreenView == null) VideoFit.apply(web, currentFit()); }, d);
         }
@@ -314,7 +322,7 @@ public class MainActivity extends Activity {
             setRequestedOrientation(onPlayer ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             setFullscreenBars(false);
-            VideoFit.apply(web, VideoFit.CONTAIN);
+            if (web != null) VideoFit.apply(web, VideoFit.CONTAIN);
         }
         if (banner != null) banner.setFullscreen(cine);
         root.requestApplyInsets();
@@ -354,7 +362,7 @@ public class MainActivity extends Activity {
         android.content.SharedPreferences p = getSharedPreferences("app", MODE_PRIVATE);
         int opens = p.getInt("opens", 0) + 1;
         p.edit().putInt("opens", opens).apply();
-        if (opens < 3 || p.getBoolean("tg_invited", false)) return;
+        if (opens < 3 || p.getBoolean("tg_invited", false) || web == null) return;
         p.edit().putBoolean("tg_invited", true).apply();
         web.postDelayed(() -> {
             if (isFinishing() || isDestroyed()) return;
@@ -423,6 +431,7 @@ public class MainActivity extends Activity {
 
     private void retry() {
         offline.setVisibility(View.GONE);
+        if (web == null) return;
         String url = web.getUrl();
         if (url == null || !isOwnHttps(Uri.parse(url))) web.loadUrl(HOME); else web.reload();
     }
@@ -495,9 +504,20 @@ public class MainActivity extends Activity {
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
             // El motor web se cerró (poca memoria): se reinicia la pantalla en vez de cerrar la app.
-            ((ViewGroup) view.getParent()).removeView(view);
+            // Antes, después de web = null otras partes seguían usando el visor y la app se cerraba.
+            String url = view.getUrl();
+            android.content.SharedPreferences ap = getSharedPreferences("app", MODE_PRIVATE);
+            long now = System.currentTimeMillis();
+            boolean again = now - ap.getLong("render_gone_at", 0) < 60_000;   // se repite: mejor volver al inicio
+            ap.edit().putLong("render_gone_at", now).apply();
+            crashUrl = (url != null && isOwnHttps(Uri.parse(url)) && !again) ? url : HOME;
+            if (fullscreenView != null) {
+                if (fullscreenHolder != null) { fullscreenHolder.removeAllViews(); root.removeView(fullscreenHolder); fullscreenHolder = null; }
+                fullscreenView = null; fullscreenCallback = null;
+            }
+            if (view.getParent() instanceof ViewGroup) ((ViewGroup) view.getParent()).removeView(view);
             view.destroy();
-            web = null;
+            if (view == web) web = null;
             recreate();
             return true;
         }
@@ -525,7 +545,7 @@ public class MainActivity extends Activity {
                     if (handled) return;
                     handled = true;
                     if (isTelegram(u)) openExternal(u);
-                    else if (isOwnHttps(u)) web.loadUrl(u.toString());
+                    else if (isOwnHttps(u)) { if (web != null) web.loadUrl(u.toString()); }
                     else if (isGoogleAdClick(u) || (!onPlayer && "https".equalsIgnoreCase(u.getScheme()))) openExternal(u); // anuncio de Google tocado
                     else adBlockedToast();
                     v.stopLoading();
@@ -570,7 +590,7 @@ public class MainActivity extends Activity {
                 ap.edit().putBoolean("fit_hint", true).apply();
                 Toast.makeText(MainActivity.this, R.string.fit_hint, Toast.LENGTH_LONG).show();
             }
-            web.setVisibility(View.GONE);
+            if (web != null) web.setVisibility(View.GONE);
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
             if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(true));
@@ -591,8 +611,7 @@ public class MainActivity extends Activity {
         else root.removeView(fullscreenView);
         fullscreenView = null;
         setCutoutMode(false);
-        VideoFit.apply(web, VideoFit.CONTAIN);
-        web.setVisibility(View.VISIBLE);
+        if (web != null) { VideoFit.apply(web, VideoFit.CONTAIN); web.setVisibility(View.VISIBLE); }
         if (Build.VERSION.SDK_INT >= 31) setPictureInPictureParams(pipParams(false));
         if (onPlayer) {
             applyCine();   // vuelve al modo cine (horizontal) o a vertical, según estaba
@@ -656,7 +675,7 @@ public class MainActivity extends Activity {
         // Atrás en modo cine: primero vuelve a la vista vertical con los episodios.
         if (onPlayer && cine) { cineWanted = false; setCine(false); return; }
         if (offline.getVisibility() == View.VISIBLE && isOnline()) { retry(); return; }
-        if (web.canGoBack()) { web.goBack(); return; }
+        if (web != null && web.canGoBack()) { web.goBack(); return; }
         long now = System.currentTimeMillis();
         if (now - lastBackPress < 2000) { super.onBackPressed(); return; }
         lastBackPress = now;
@@ -666,19 +685,20 @@ public class MainActivity extends Activity {
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        web.saveState(outState);
+        if (web != null) web.saveState(outState);
+        else if (crashUrl != null) outState.putString("ax_reload", crashUrl);
     }
 
     @Override protected void onPause() {
         super.onPause();
         boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
-        if (!pip) web.onPause();   // en imagen en imagen el video sigue reproduciéndose
+        if (!pip && web != null) web.onPause();   // en imagen en imagen el video sigue reproduciéndose
         if (banner != null) banner.onPause();
         CookieManager.getInstance().flush();
     }
     @Override protected void onResume() {
         super.onResume();
-        web.onResume();
+        if (web != null) web.onResume();
         if (banner != null) banner.onResume();
     }
 

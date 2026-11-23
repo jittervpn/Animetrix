@@ -70,6 +70,7 @@ final class VideoFit {
 
     /** Envía el modo a todos los reproductores de la página actual. */
     static void apply(WebView web, String mode) {
+        if (web == null) return;   // el motor web pudo cerrarse por falta de memoria
         String m = COVER.equals(mode) ? COVER : CONTAIN;
         web.evaluateJavascript(
             "(function(){var f=document.getElementsByTagName('iframe');for(var i=0;i<f.length;i++){" +

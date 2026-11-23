@@ -37,6 +37,7 @@ final class AdInterstitial {
     private boolean showing;
     private int failures;
     private boolean destroyed;
+    private boolean onPlayer;
 
     AdInterstitial(Activity act, SharedPreferences prefs) {
         this.act = act;
@@ -77,6 +78,12 @@ final class AdInterstitial {
         return true;
     }
 
+    /** En el reproductor no se precarga (ahorra memoria mientras se ve el video); al salir, sí. */
+    void setOnPlayer(boolean player) {
+        onPlayer = player;
+        if (!player) preload();
+    }
+
     void onDestroy() {
         destroyed = true;
         ui.removeCallbacksAndMessages(null);
@@ -86,11 +93,11 @@ final class AdInterstitial {
     private void done(Runnable then) {
         showing = false;
         if (!destroyed) then.run();
-        preload();   // deja el siguiente listo
+        // El siguiente se precarga al salir del reproductor (setOnPlayer(false)), no durante el video.
     }
 
     private void preload() {
-        if (unit == null || ad != null || loading || destroyed) return;
+        if (unit == null || ad != null || loading || destroyed || onPlayer) return;
         loading = true;
         final String forUnit = unit;
         InterstitialAd.load(act, forUnit, new AdRequest.Builder().build(), new InterstitialAdLoadCallback() {
