@@ -31,8 +31,22 @@ final class AdBlocker {
         "yieldmo.com", "smartadserver.com", "amazon-adsystem.com", "adsrvr.org", "casalemedia.com",
         "lijit.com", "sharethrough.com", "media.net", "bebi.com", "ylliX.net", "adspyglass.com",
         "realsrv.com", "magsrv.com", "popmyads.com", "ads.yahoo.com", "adtng.com", "cpmstar.com",
-        "displayvertising.com", "pemsrv.com", "whos.amung.us", "histats.com"
+        "displayvertising.com", "pemsrv.com", "whos.amung.us", "histats.com",
+        // Servidor "Free vip" (vidara.to): Adcash (aclib) y su dominio de redirecciones. Cada toque
+        // en el video disparaba anuncios nuevos y la memoria del celular subía ~13 MB/s hasta el cierre.
+        "acscdn.com", "sammierkelima.com", "adcash.network", "aclib.net"
     };
+
+    /** Rutas de scripts de anuncios conocidos aunque se sirvan desde dominios nuevos. */
+    private static final String[] AD_PATHS = { "/script/aclib.js", "/aclib.js", "/script/suv5.js" };
+
+    static boolean isAd(android.net.Uri u) {
+        if (u == null) return false;
+        if (isAd(u.getHost())) return true;
+        String p = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
+        for (String a : AD_PATHS) if (p.endsWith(a)) return true;
+        return false;
+    }
 
     /** Palabras que delatan scripts de anuncios aunque cambien de dominio. */
     private static final String[] AD_HINTS = { "popunder", "popads", "adsterra", "propeller", "clickunder" };
