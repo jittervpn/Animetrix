@@ -527,35 +527,6 @@
     } catch { /* sin history API */ }
   }
 
-  /* ---------- depuración remota (TEMPORAL) ----------
-     Solo se activa en el celular que abre animetrix.lat/#depurar (y se apaga con #depurar-off).
-     Carga el SDK de remote-webview-debugger desde nuestro servidor del depurador; nada se comparte
-     hasta que el usuario toca "Solicitar asistencia" y aprueba en su propio celular. */
-  const RWD_URL = 'https://sb-1k4v5fwdi70a.vercel.run/v1';
-  const RWD_KEY = 'rwd_pk_gNyUv7hu8WdkJiJXLsXP9cyP';
-  (function rwd() {
-    try {
-      if (location.hash === '#depurar') { localStorage.setItem('ax_rwd', '1'); history.replaceState(null, '', '/'); }
-      if (location.hash === '#depurar-off') { localStorage.removeItem('ax_rwd'); history.replaceState(null, '', '/'); return; }
-      if (localStorage.getItem('ax_rwd') !== '1') return;
-      const s = document.createElement('script');
-      s.src = RWD_URL + '/sdk.js'; s.async = true;
-      s.onload = () => { try { window.RemoteWebviewDebugger.run(RWD_URL, RWD_KEY); } catch (e) { console.error('[rwd]', e); } };
-      document.head.append(s);
-      // Medidor de fluidez (solo con la depuración activa): cada 5 s anota en la consola los cuadros
-      // por segundo, los cuadros lentos (>50 ms) y las tareas largas que congelan la pantalla.
-      let frames = 0, slow = 0, worst = 0, last = performance.now(), longT = 0, longMs = 0;
-      const tick = (t) => { const d = t - last; last = t; frames++; if (d > 50) slow++; if (d > worst) worst = d; requestAnimationFrame(tick); };
-      requestAnimationFrame(tick);
-      try { new PerformanceObserver((l) => { for (const e of l.getEntries()) { longT++; longMs += e.duration; } }).observe({ type: 'longtask', buffered: true }); } catch { /* sin soporte */ }
-      setInterval(() => {
-        if (document.hidden) { frames = slow = worst = longT = longMs = 0; return; }
-        console.info(`[fluidez] ${location.pathname}${location.hash} · ${Math.round(frames / 5)} fps · cuadros lentos: ${slow} · peor cuadro: ${Math.round(worst)} ms · tareas largas: ${longT} (${Math.round(longMs)} ms) · scrollY: ${Math.round(scrollY)}`);
-        frames = slow = worst = longT = longMs = 0;
-      }, 5000);
-    } catch { /* sin almacenamiento */ }
-  })();
-
   const IN_APP = /AnimetrixApp\//.test(navigator.userAgent);
   if (IN_APP) document.documentElement.classList.add('in-app');
   if (/AnimetrixCine\//.test(navigator.userAgent)) document.documentElement.classList.add('has-cine');
