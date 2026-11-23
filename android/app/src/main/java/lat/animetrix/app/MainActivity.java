@@ -200,6 +200,8 @@ public class MainActivity extends Activity {
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         VideoFit.install(web);
+
+        PlayerBuffer.install(this, web);   // límite de búfer del servidor "Free vip"
         web.setWebViewClient(new SafeClient());
         web.setWebChromeClient(new Chrome());
 
@@ -518,7 +520,7 @@ public class MainActivity extends Activity {
                 // Marcos internos (reproductor o anuncios de Google): navegación normal, salvo esquemas raros.
                 // Los anuncios solo se bloquean dentro del reproductor de video.
                 if (!scheme.equals("https") && !scheme.equals("about") && !scheme.equals("blob") && !scheme.equals("data")) return true;
-                return fromPlayer(req) && AdBlocker.isAd(u.getHost());
+                return fromPlayer(req) && AdBlocker.isAd(u);
             }
             // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
             // Todo lo demás es un anuncio o redirección → bloqueado.
@@ -538,7 +540,7 @@ public class MainActivity extends Activity {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
-            if (fromPlayer(req) && AdBlocker.isAd(u.getHost())) return AdBlocker.empty();
+            if (fromPlayer(req) && AdBlocker.isAd(u)) return AdBlocker.empty();
             return super.shouldInterceptRequest(view, req);
         }
 
