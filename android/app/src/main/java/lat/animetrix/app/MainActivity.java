@@ -97,7 +97,6 @@ public class MainActivity extends Activity {
                 CrashReport.memoryNow(MainActivity.this, "guard", rss, memLimitKb, url);
                 if (fullscreenView != null) exitFullscreen();
                 web.reload();
-                toast("El reproductor estaba llenando la memoria del celular: se recargó el video. Si se repite, usa el servidor Latino HD.");
             }
             memRunning = true;
             memHandler.postDelayed(this, 1000);
@@ -208,7 +207,6 @@ public class MainActivity extends Activity {
         if (reload != null) {
             // El motor web se cerró por falta de memoria: se vuelve a la misma página (o al inicio si se repite).
             web.loadUrl(reload);
-            toast("El celular se quedó sin memoria: se recargó la página.");
         } else if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
