@@ -9,6 +9,7 @@ import { securityHeaders, sendJson, rateLimited, logSuspicious } from '../lib/ht
 import { getFlags, setFlag } from '../lib/flags.js';
 import { TYPES } from '../lib/inkaflix.js';
 import { getAds, setAds, publicView } from '../lib/ads.js';
+import { getStatus, publishStatus, setAuto } from '../lib/status.js';
 
 function validKey(given) {
   const real = process.env.ADMIN_SECRET || '';
@@ -51,8 +52,24 @@ export default async function handler(req, res) {
   try {
     // Solo leer el estado (al abrir el panel)
     if (b.action === 'get') {
-      const [flags, ads] = await Promise.all([getFlags(), getAds()]);
-      return sendJson(res, 200, { flags, ads });
+      const [flags, ads, status] = await Promise.all([getFlags(), getAds(), getStatus()]);
+      return sendJson(res, 200, { flags, ads, status });
+    }
+
+    // Estado del reproductor: el bot lo publica en el canal de Telegram
+    if (b.action === 'status' && (b.state === 'ok' || b.state === 'maint')) {
+      try {
+        const status = await publishStatus(b.state, typeof b.note === 'string' ? b.note : '');
+        console.log(`[animetrix-admin] estado del reproductor -> ${b.state}`);
+        return sendJson(res, 200, { status });
+      } catch (e) {
+        if (e && e.userError) return sendJson(res, 400, { error: e.message });
+        console.error('[animetrix-admin] telegram:', e.message);
+        return sendJson(res, 502, { error: 'Telegram no respondió. Probá de nuevo en un momento.' });
+      }
+    }
+    if (b.action === 'status-auto' && typeof b.on === 'boolean') {
+      return sendJson(res, 200, { status: await setAuto(b.on) });
     }
 
     // Guardar la configuración de AdMob
@@ -138,6 +155,25 @@ button{font:inherit;cursor:pointer}
     <p class="sub">Un cambio se aplica en todo el sitio y la app en ~20 segundos.</p>
     <div id="rows"></div>
     <p class="err" id="e2"></p>
+
+    <div class="sec" id="estado">
+      <h2>Estado del reproductor <span class="pill" id="stp">—</span></h2>
+      <p class="sub" style="margin:0">El bot lo publica al instante en el canal de Telegram.</p>
+      <div class="field">
+        <label for="stnote">Nota (opcional)</label>
+        <input id="stnote" type="text" maxlength="300" autocomplete="off" placeholder="Ej.: Free vip vuelve en unos minutos" style="font-family:inherit">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button class="btn" id="st-ok" style="margin-top:14px">✅ Funcionando</button>
+        <button class="btn" id="st-maint" style="margin-top:14px;background:#ffd75e">🛠️ Mantenimiento</button>
+      </div>
+      <div class="row">
+        <div><b>Aviso automático</b><div class="st" style="color:#9aa3b2">Si el reproductor se cae ~20 min, el bot avisa solo (y cuando vuelve)</div></div>
+        <button class="sw" id="sw-auto" aria-label="Aviso automático"></button>
+      </div>
+      <p class="hint" id="stlast"></p>
+      <p class="err" id="e4"></p><p class="ok" id="o4"></p>
+    </div>
 
     <div class="sec" id="admob">
       <h2>AdMob · Banner <span class="pill" id="adst">—</span></h2>
@@ -272,9 +308,32 @@ $('#save').onclick=async()=>{
   catch(ex){if(ex.message==='401'){logout()}else{$('#e3').textContent=ex.message}}
   finally{$('#save').disabled=false}
 };
+function renderStatus(s){
+  s=s||{};const p=$('#stp');
+  if(s.state==='maint'){p.textContent='Mantenimiento';p.className='pill test'}else{p.textContent='Funcionando';p.className='pill live'}
+  setSw($('#sw-auto'),s.auto!==false);
+  const fmt=(t)=>t?new Date(t).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'}):'';
+  const parts=[];
+  if(s.postedAt)parts.push('Último aviso: '+fmt(s.postedAt)+(s.source==='auto'?' (automático)':''));
+  if(s.lastCheck)parts.push('Último chequeo: '+fmt(s.lastCheck.at)+' · '+(s.lastCheck.ok?'responde bien':s.lastCheck.detail));
+  $('#stlast').textContent=parts.join(' · ');
+}
+async function sendStatus(state){
+  $('#e4').textContent='';$('#o4').textContent='';$('#o4').className='ok';
+  const btns=[$('#st-ok'),$('#st-maint')];btns.forEach(b=>b.disabled=true);
+  try{const d=await call({action:'status',state,note:$('#stnote').value.trim()});renderStatus(d.status);$('#stnote').value='';
+    $('#o4').textContent=state==='ok'?'Publicado en el canal: funcionando ✓':'Publicado en el canal: mantenimiento ✓'}
+  catch(ex){if(ex.message==='401'){logout()}else{$('#e4').textContent=ex.message}}
+  finally{btns.forEach(b=>b.disabled=false)}
+}
+$('#st-ok').onclick=()=>sendStatus('ok');
+$('#st-maint').onclick=()=>sendStatus('maint');
+$('#sw-auto').onclick=async()=>{const on=!swOn($('#sw-auto'));setSw($('#sw-auto'),on);$('#e4').textContent='';
+  try{const d=await call({action:'status-auto',on});renderStatus(d.status);$('#o4').textContent=on?'Aviso automático encendido ✓':'Aviso automático apagado ✓'}
+  catch(ex){setSw($('#sw-auto'),!on);if(ex.message==='401'){logout()}else{$('#e4').textContent=ex.message}}};
 function logout(){KEY='';sessionStorage.removeItem('ax_admin');$('#panel').classList.add('hide');$('#login').classList.remove('hide');$('#e1').textContent='La sesión expiró, entra de nuevo.'}
 async function open(){
-  try{const d=await call({action:'get'});$('#login').classList.add('hide');$('#panel').classList.remove('hide');render(d.flags);renderAds(d.ads)}
+  try{const d=await call({action:'get'});$('#login').classList.add('hide');$('#panel').classList.remove('hide');render(d.flags);renderAds(d.ads);renderStatus(d.status)}
   catch(ex){if(ex.message==='401'){$('#e1').textContent='Clave incorrecta'}else{$('#e1').textContent=ex.message}KEY='';sessionStorage.removeItem('ax_admin')}
 }
 $('#enter').onclick=()=>{KEY=$('#k').value.trim();if(!KEY)return;sessionStorage.setItem('ax_admin',KEY);$('#enter').disabled=true;open().finally(()=>{$('#enter').disabled=false})};
