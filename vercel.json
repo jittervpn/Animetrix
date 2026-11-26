@@ -39,7 +39,7 @@
     },
     {
       "source": "/prueba-api",
-      "destination": "/api/prueba-api"
+      "destination": "/api/app-config?vista=prueba"
     }
   ],
   "headers": [
