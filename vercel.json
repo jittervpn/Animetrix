@@ -36,6 +36,10 @@
     {
       "source": "/app-ads.txt",
       "destination": "/api/app-ads"
+    },
+    {
+      "source": "/prueba-api",
+      "destination": "/api/prueba-api"
     }
   ],
   "headers": [
