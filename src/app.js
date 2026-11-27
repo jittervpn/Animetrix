@@ -504,6 +504,16 @@
   function initWatch() {
     const el = $('[data-watch]'); if (!el) return false;
     let w; try { w = JSON.parse(el.dataset.watch); } catch { return true; }
+    // Ítem de la API de AnimetrixLat (en paralelo a InkaCat): no tiene type/tmdb,
+    // así que solo arranca el reproductor y el escudo anti-anuncios; sin Mi lista/Seguir viendo.
+    if (w.atx) {
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      window.scrollTo(0, 0);
+      window.addEventListener('pageshow', () => window.scrollTo(0, 0));
+      initPlayer();
+      initPlayerUi();
+      return true;
+    }
     if (!TYPES[w.type]) return true;
     seen.push(w, w.se, w.ep);
     // Recordar el video abierto: si un anuncio saca al usuario, se le ofrece volver con un toque.

@@ -191,7 +191,7 @@ async function renderAtx(res, id) {
     canonical: 'https://www.animetrix.lat' + link(it.id),
     image: it.logo || '',
   }) + `
-<main id="app" class="app watch-page">
+<main id="app" class="app watch-page" data-watch="${esc(JSON.stringify({ atx: true, id: it.id, title: name }))}">
   <div class="player-wrap"><div class="player">
     <iframe id="player" src="${esc(it.embed)}" title="Reproductor: ${esc(name)}"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"></iframe>
