@@ -2,7 +2,7 @@
 //                /api/data?a=title&type=serie&tmdb=123
 // El navegador nunca ve la API key: esta función la añade del lado del servidor.
 import { asType, asInt, catalog, catalogAll, stats, home, title, ApiError } from '../lib/inkaflix.js';
-import { home as atxHome } from '../lib/animetrixlat.js';
+import { catalogByType as atxCatalogByType, serieDetail as atxSerieDetail, ApiError as AtxApiError } from '../lib/animetrixlat.js';
 import { securityHeaders, rateLimited, sendJson, logSuspicious } from '../lib/http.js';
 
 export default async function handler(req, res) {
@@ -21,9 +21,20 @@ export default async function handler(req, res) {
   if (one(q.a) === 'stats') {
     try { return sendJson(res, 200, await stats(), 120); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
   }
-  // Catálogo de la API propia de AnimetrixLat (en paralelo a InkaCat), agrupado por "group".
-  if (one(q.a) === 'atx-home') {
-    try { return sendJson(res, 200, await atxHome(), 300); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
+  // Catálogo de AnimetrixLat agrupado por tipo y por serie, para mezclar en Películas/Series/Anime.
+  if (one(q.a) === 'atx-catalog') {
+    try { return sendJson(res, 200, { lists: await atxCatalogByType() }, 300); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
+  }
+  if (one(q.a) === 'atx-serie') {
+    const t = asType(one(q.type));
+    const k = one(q.key);
+    if (!t || typeof k !== 'string' || !k) return sendJson(res, 400, { error: 'Parámetros inválidos' });
+    try { return sendJson(res, 200, await atxSerieDetail(t, k.slice(0, 200)), 300); }
+    catch (e) {
+      if (!(e instanceof AtxApiError)) console.error('[animetrix]', e);
+      const nf = e instanceof AtxApiError && e.status === 404;
+      return sendJson(res, nf ? 404 : 502, { error: nf ? 'No encontrado' : 'Servicio no disponible' });
+    }
   }
   const type = asType(one(q.type));
   if (!type) { logSuspicious(req, 'bad-type'); return sendJson(res, 400, { error: 'Tipo no válido' }); }
