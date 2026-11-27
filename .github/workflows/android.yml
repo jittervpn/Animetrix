@@ -96,7 +96,7 @@ jobs:
           retention-days: 30
 
       - name: Publicar en Releases
-        if: env.SIGNING == 'permanente'   # solo se publican APK con la firma oficial
+        if: env.SIGNING == 'permanente' && github.ref == 'refs/heads/main'   # solo APK con la firma oficial y desde main (las pruebas de otras ramas no se publican)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
