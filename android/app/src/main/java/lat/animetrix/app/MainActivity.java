@@ -46,8 +46,9 @@ import java.util.Locale;
  *    cargarse en la app (anuncios, redirecciones) se bloquea.
  *  - Ventanas emergentes bloqueadas, enlaces intent:// / market:// bloqueados.
  *  - Bloqueo de anuncios a nivel de red (también dentro del reproductor).
- *  - Sin acceso a archivos, sin interfaz JavaScript↔Android, sin contenido mixto,
- *    sin permisos de cámara/micrófono/ubicación, solo HTTPS, Navegación Segura activa.
+ *  - Sin acceso a archivos, sin contenido mixto. Único canal JavaScript→Android: el aviso
+ *    "el video arrancó" (axPlay), que solo acepta ese texto y no devuelve datos.
+ *  - Sin permisos de cámara/micrófono/ubicación, solo HTTPS, Navegación Segura activa.
  */
 public class MainActivity extends Activity {
 
@@ -130,6 +131,16 @@ public class MainActivity extends Activity {
     private long lastBackPress;
     private long lastAdToast;
 
+    /* Bloqueador adaptable: si el reproductor no arranca con el bloqueo completo, la app ofrece
+       reintentar con bloqueo suave (siguen bloqueadas las ventanas emergentes y redirecciones). */
+    private volatile String blockMode = AdBlocker.STRICT;   // modo de la página /ver actual
+    private final java.util.concurrent.atomic.AtomicInteger blockedOnPage = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile boolean playedOnPage;
+    private long firstTouchAt;          // primer toque en el reproductor (el usuario intentó dar play)
+    private String softForUrl;          // página que se recargó en modo suave
+    private String askedForUrl;         // página en la que ya se ofreció reintentar
+    private final Runnable stallCheck = this::checkStall;
+
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -179,7 +190,11 @@ public class MainActivity extends Activity {
         // El tamaño de letra del sistema descuadraba el diseño en celulares con letra grande.
         s.setTextZoom(100);
         // AnimetrixCine/1: la web muestra la barra del modo cine y el botón "Ampliar" (solo en versiones que lo soportan).
-        s.setUserAgentString(s.getUserAgentString() + " AnimetrixApp/" + BuildConfig.VERSION_NAME + " AnimetrixCine/1");
+        // Sin las marcas de "visor web" ("; wv" y "Version/4.0"): algunos servidores de video no cargan
+        // dentro de apps y con ellas el reproductor se quedaba buscando servidor.
+        String ua = s.getUserAgentString().replace("; wv)", ")").replace(" Version/4.0", "");
+        s.setUserAgentString(ua + " AnimetrixApp/" + BuildConfig.VERSION_NAME + " AnimetrixCine/1");
+        hideRequestedWith(s);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) s.setSafeBrowsingEnabled(true);
 
         CookieManager cookies = CookieManager.getInstance();
@@ -200,6 +215,16 @@ public class MainActivity extends Activity {
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         VideoFit.install(web);
+        AdBlocker.init(this);
+        installPlayWatch(web);   // avisa cuando un video arranca (para saber si el bloqueador lo frena)
+        web.setOnTouchListener((v, ev) -> {
+            if (onPlayer && firstTouchAt == 0 && ev.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+                firstTouchAt = System.currentTimeMillis();
+                memHandler.removeCallbacks(stallCheck);
+                memHandler.postDelayed(stallCheck, 15_000);
+            }
+            return false;   // el toque sigue normal hacia la página
+        });
 
         PlayerBuffer.install(this, web);   // límite de búfer del servidor "Free vip"
         web.setWebViewClient(new SafeClient());
@@ -353,6 +378,7 @@ public class MainActivity extends Activity {
         if (banner != null) banner.setOnPlayer(onPlayer);
         if (onPlayer) {
             if (!url.equals(cineUrl)) { cineUrl = url; cineWanted = true; }
+            if (!url.equals(playerPageUrl)) startPlayerPage(url);
             setCine(cineWanted);
             if (!memRunning) { memPeakKb = 0; memBaseAvailKb = 0; memWatch(true); }
         } else {
@@ -362,6 +388,8 @@ public class MainActivity extends Activity {
                 memPeakKb = 0;
             }
             cineUrl = null;
+            playerPageUrl = null;
+            memHandler.removeCallbacks(stallCheck);
             setCine(false);
             if (wasPlayer && fullscreenView == null) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         }
@@ -397,6 +425,90 @@ public class MainActivity extends Activity {
         }
         if (banner != null) banner.setFullscreen(cine);
         root.requestApplyInsets();
+    }
+
+    /* ------------------------------------------------ bloqueador adaptable */
+
+    private String playerPageUrl;
+
+    /** Nueva página del reproductor: se elige el modo de bloqueo y se reinician los contadores. */
+    private void startPlayerPage(String url) {
+        playerPageUrl = url;
+        blockedOnPage.set(0);
+        playedOnPage = false;
+        firstTouchAt = 0;
+        memHandler.removeCallbacks(stallCheck);
+        blockMode = url.equals(softForUrl) ? AdBlocker.SOFT : AdBlocker.startMode();
+    }
+
+    /** Quita la cabecera X-Requested-With (delata la app y algunos servidores de video la rechazan). */
+    private static void hideRequestedWith(WebSettings s) {
+        try {
+            if (!androidx.webkit.WebViewFeature.isFeatureSupported("REQUESTED_WITH_HEADER_ALLOW_LIST")) return;
+            Class.forName("androidx.webkit.WebSettingsCompat")
+                .getMethod("setRequestedWithHeaderOriginAllowList", WebSettings.class, java.util.Set.class)
+                .invoke(null, s, java.util.Collections.<String>emptySet());
+        } catch (Throwable ignored) { /* versión del visor sin esta opción */ }
+    }
+
+    /** Script en todos los marcos: cuando un <video> empieza a reproducirse, avisa a la app. */
+    private void installPlayWatch(WebView w) {
+        try {
+            if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.WEB_MESSAGE_LISTENER)
+                || !androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.DOCUMENT_START_SCRIPT)) return;
+            java.util.Set<String> all = java.util.Collections.singleton("*");
+            androidx.webkit.WebViewCompat.addWebMessageListener(w, "axPlay", all,
+                (view, message, sourceOrigin, isMainFrame, reply) -> {
+                    if (message != null && "playing".equals(message.getData())) runOnUiThread(this::onVideoPlaying);
+                });
+            androidx.webkit.WebViewCompat.addDocumentStartJavaScript(w,
+                // Cuenta como "arrancó" un video que avanzó más de 2 s y dura más de 90 s (o es en vivo),
+                // así un anuncio corto no se confunde con la película.
+                "(function(){if(window.__axPlay)return;window.__axPlay=1;var sent=0;" +
+                "document.addEventListener('timeupdate',function(e){if(sent)return;try{var t=e.target;" +
+                "if(t&&t.nodeName==='VIDEO'&&t.currentTime>2&&(!isFinite(t.duration)||t.duration>90)&&window.axPlay){sent=1;axPlay.postMessage('playing');}" +
+                "}catch(x){}},true);})();", all);
+        } catch (Throwable ignored) { /* sin aviso: el bloqueador funciona igual que antes */ }
+    }
+
+    private void onVideoPlaying() {
+        if (!onPlayer || playedOnPage) return;
+        playedOnPage = true;
+        memHandler.removeCallbacks(stallCheck);
+        // Anduvo solo con bloqueo suave: se usa ese modo directamente los próximos días.
+        if (AdBlocker.SOFT.equals(blockMode) && playerPageUrl != null && playerPageUrl.equals(softForUrl)) AdBlocker.rememberSoft();
+    }
+
+    /** El usuario tocó el reproductor hace 15 s y el video no arrancó: si el bloqueador cortó algo, se ofrece reintentar. */
+    private void checkStall() {
+        if (!onPlayer || playedOnPage || web == null || isFinishing() || isDestroyed()) return;
+        if (!AdBlocker.STRICT.equals(blockMode)) return;
+        if (blockedOnPage.get() == 0) {
+            // Todavía no se bloqueó nada: se vuelve a mirar en un rato (hasta 1 min después del primer toque).
+            if (System.currentTimeMillis() - firstTouchAt < 60_000) memHandler.postDelayed(stallCheck, 10_000);
+            return;
+        }
+        String url = playerPageUrl;
+        if (url == null || url.equals(askedForUrl)) return;
+        askedForUrl = url;
+        new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(R.string.stall_title)
+            .setMessage(R.string.stall_msg)
+            .setPositiveButton(R.string.stall_retry, (d, w) -> {
+                if (web == null || !url.equals(playerPageUrl)) return;
+                softForUrl = url;
+                playerPageUrl = null;   // al recargar se vuelve a elegir el modo (suave)
+                web.reload();
+            })
+            .setNegativeButton(R.string.stall_wait, null)
+            .show();
+    }
+
+    /** ¿Se bloquea esta petición del reproductor? (y la cuenta, para saber si el bloqueador frenó el video) */
+    private boolean blockPlayer(WebResourceRequest req) {
+        if (!fromPlayer(req) || !AdBlocker.blocks(blockMode, req.getUrl())) return false;
+        blockedOnPage.incrementAndGet();
+        return true;
     }
 
     /** ¿La petición viene del reproductor de video (página /ver o el iframe de InkaCat)? */
@@ -486,6 +598,7 @@ public class MainActivity extends Activity {
     }
 
     private void adBlockedToast() {
+        if (onPlayer) blockedOnPage.incrementAndGet();
         long now = System.currentTimeMillis();
         if (now - lastAdToast > 4000) {
             lastAdToast = now;
@@ -520,7 +633,7 @@ public class MainActivity extends Activity {
                 // Marcos internos (reproductor o anuncios de Google): navegación normal, salvo esquemas raros.
                 // Los anuncios solo se bloquean dentro del reproductor de video.
                 if (!scheme.equals("https") && !scheme.equals("about") && !scheme.equals("blob") && !scheme.equals("data")) return true;
-                return fromPlayer(req) && AdBlocker.isAd(u);
+                return blockPlayer(req);
             }
             // Ventana principal: solo animetrix.lat por HTTPS. Telegram se abre en su app (solo si el usuario tocó).
             // Todo lo demás es un anuncio o redirección → bloqueado.
@@ -540,7 +653,7 @@ public class MainActivity extends Activity {
         @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
             Uri u = req.getUrl();
-            if (fromPlayer(req) && AdBlocker.isAd(u)) return AdBlocker.empty();
+            if (blockPlayer(req)) return AdBlocker.empty(u);
             return super.shouldInterceptRequest(view, req);
         }
 
@@ -622,7 +735,9 @@ public class MainActivity extends Activity {
                     else if (isGoogleAdClick(u) || (!onPlayer && "https".equalsIgnoreCase(u.getScheme()))) openExternal(u); // anuncio de Google tocado
                     else adBlockedToast();
                     v.stopLoading();
-                    v.post(v::destroy);
+                    // Se cierra un rato después: algunos reproductores revisan si la ventana "se abrió"
+                    // (window.closed) y, si la ven cerrada al instante, no arrancan el video.
+                    v.postDelayed(v::destroy, 20_000);
                 }
                 @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { handle(v, r.getUrl()); return true; }
                 @Override public void onPageStarted(WebView v, String url, Bitmap f) { handle(v, Uri.parse(url)); }
@@ -785,6 +900,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        memHandler.removeCallbacks(stallCheck);
         if (banner != null) banner.onDestroy();
         if (web != null) {
             web.stopLoading();

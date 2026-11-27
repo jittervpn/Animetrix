@@ -96,7 +96,10 @@ final class AdBanner {
         fetchedAt = System.currentTimeMillis();
         new Thread(() -> {
             try {
-                JSONObject ads = new JSONObject(fetch()).optJSONObject("ads");
+                JSONObject root = new JSONObject(fetch());
+                // Modo del bloqueador del reproductor ("on" / "soft" / "off"), se cambia desde Vercel sin APK nuevo.
+                AdBlocker.setRemote(root.optString("adblock", AdBlocker.STRICT));
+                JSONObject ads = root.optJSONObject("ads");
                 if (ads == null) return;
                 prefs.edit().putString("cfg", ads.toString()).apply();
                 ui.post(() -> apply(ads));

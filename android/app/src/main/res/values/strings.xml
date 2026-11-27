@@ -6,6 +6,10 @@
     <string name="retry">Reintentar</string>
     <string name="exit_hint">Presiona atrás otra vez para salir</string>
     <string name="ad_blocked">Anuncio bloqueado</string>
+    <string name="stall_title">¿No arranca el video?</string>
+    <string name="stall_msg">El bloqueador de anuncios puede estar frenando el reproductor. ¿Reintentar con bloqueo suave? Las ventanas emergentes y redirecciones siguen bloqueadas.</string>
+    <string name="stall_retry">Reintentar</string>
+    <string name="stall_wait">Seguir esperando</string>
     <string name="ch_new">Estrenos</string>
     <string name="ch_new_desc">Películas, series, anime y episodios nuevos</string>
     <string name="ch_news">Avisos</string>

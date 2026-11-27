@@ -11,5 +11,9 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return sendJson(res, 405, { error: 'Método no permitido' }); }
   if (rateLimited(req, 60)) { res.setHeader('Retry-After', '60'); return sendJson(res, 429, { error: 'Demasiadas peticiones' }); }
   // Caché corto en la CDN: un cambio del panel llega a la app en ~1 minuto.
-  return sendJson(res, 200, { v: 1, ads: publicView(await getAds()) }, 30);
+  // Bloqueador de anuncios del reproductor en la app: "on" (completo), "soft" (solo lo que cuelga la app)
+  // u "off". Se cambia con la variable APP_ADBLOCK en Vercel, sin publicar un APK nuevo.
+  const ab = String(process.env.APP_ADBLOCK || 'on').trim().toLowerCase();
+  const adblock = ['on', 'soft', 'off'].includes(ab) ? ab : 'on';
+  return sendJson(res, 200, { v: 1, adblock, ads: publicView(await getAds()) }, 30);
 }
