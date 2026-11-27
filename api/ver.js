@@ -1,6 +1,8 @@
 // Página del reproductor: /ver?t=movie&id=950387
 //                        /ver?t=serie&id=230424&se=1&ep=10
+//                        /ver?atx=el-comienzo-a1b2c3   (fuente: AnimetrixLat, en paralelo a InkaCat)
 import { asType, asInt, title as getTitle, embedUrl, esc, config } from '../lib/inkaflix.js';
+import { item as atxItem, asId as atxAsId, ApiError as AtxApiError } from '../lib/animetrixlat.js';
 import { securityHeaders, rateLimited } from '../lib/http.js';
 import { typeEnabled } from '../lib/flags.js';
 import { pageStart, pageEnd } from '../lib/layout.js';
@@ -16,6 +18,10 @@ export default async function handler(req, res) {
   }
   const one = (v) => (Array.isArray(v) ? v[0] : v);
   const q = req.query || {};
+
+  const atxId = atxAsId(one(q.atx));
+  if (atxId) return renderAtx(res, atxId);
+
   const type = asType(one(q.t));
   const tmdb = asInt(one(q.id), 1, 99999999);
 
@@ -148,5 +154,69 @@ export default async function handler(req, res) {
 
   res.statusCode = 200;
   res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400');
+  res.end(html);
+}
+
+/** Reproductor para un ítem de la API de AnimetrixLat (/ver?atx=<id>). */
+async function renderAtx(res, id) {
+  let it;
+  try {
+    it = await atxItem(id);
+  } catch (e) {
+    const notFound = e instanceof AtxApiError && e.status === 404;
+    if (!(e instanceof AtxApiError)) console.error('[animetrix] ver atx:', e.message);
+    res.statusCode = notFound ? 404 : 502;
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end(pageStart({ title: notFound ? 'No encontrado' : 'No disponible' })
+      + `<main id="app" class="app"><section class="empty"><h1>${notFound ? 'Título no encontrado' : 'No se pudo cargar el video'}</h1>`
+      + '<p><a class="btn primary" href="/">Volver al inicio</a></p></section></main>' + pageEnd());
+  }
+
+  const name = it.title || id;
+  const epLabel = it.temporada != null || it.episodio != null
+    ? ['T' + (it.temporada ?? 1), it.episodio != null ? 'E' + it.episodio : null].filter(Boolean).join(' · ')
+    : '';
+  const meta = [it.serie, it.group, it.lang].filter(Boolean).join(' · ');
+  const link = (x) => '/ver?atx=' + encodeURIComponent(x);
+
+  const episodesHtml = it.episodes.length
+    ? `<div class="episodes"><h2 class="sub-title">Episodios</h2><ol class="ep-list">${it.episodes.map((e) =>
+        `<li><a href="${esc(link(e.id))}"${e.id === it.id ? ' aria-current="true"' : ''}><span class="ep-n">${e.episodio ?? ''}</span><span class="ep-t">${esc(e.title || e.id)}</span></a></li>`).join('')}</ol></div>`
+    : '';
+
+  const html = pageStart({
+    title: `Ver ${name}${epLabel ? ' ' + epLabel : ''} online`,
+    description: (it.description ? it.description + ' ' : '') + `Mira ${name} online en Animetrix.`,
+    bodyClass: 'watch', watch: true,
+    canonical: 'https://www.animetrix.lat' + link(it.id),
+    image: it.logo || '',
+  }) + `
+<main id="app" class="app watch-page">
+  <div class="player-wrap"><div class="player">
+    <iframe id="player" src="${esc(it.embed)}" title="Reproductor: ${esc(name)}"
+      allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"></iframe>
+  </div></div>
+  <section class="watch-info">
+    <div class="watch-head">
+      <a class="back" href="/" aria-label="Volver al inicio"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <div>
+        <p class="eyebrow">${esc(it.group || 'Animetrix')}</p>
+        <h1>${esc(name)}${epLabel ? ` <span class="ep-tag">${esc(epLabel)}</span>` : ''}</h1>
+        ${meta ? `<div class="meta watch-meta"><span>${esc(meta)}</span></div>` : ''}
+      </div>
+    </div>
+    <div class="ep-nav">
+      ${it.prev ? `<a class="btn ghost" href="${esc(link(it.prev))}">‹ Anterior</a>` : ''}
+      ${it.next ? `<a class="btn primary" href="${esc(link(it.next))}">Siguiente ›</a>` : ''}
+    </div>
+    ${it.description ? `<p class="overview">${esc(it.description)}</p>` : ''}
+    ${episodesHtml}
+    <p class="hint">¿No carga el video? Recarga la página o prueba en unos minutos.</p>
+  </section>
+</main>
+` + pageEnd();
+
+  res.statusCode = 200;
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400');
   res.end(html);
 }
