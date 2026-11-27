@@ -6,13 +6,35 @@ El reproductor y el catálogo vienen de la API de InkaCat.
 ## Estructura
 
 ```
-src/             ← código fuente del frontend (app.js, app.css)
-public/          ← web estática generada (index.html, assets con hash, fuentes)
-api/data.js      ← proxy seguro hacia InkaCat (la API key nunca llega al navegador)
-api/ver.js       ← página del reproductor (/ver?t=movie&id=950387)
-lib/             ← cliente de la API, validación, plantilla HTML
-vercel.json      ← rutas y cabeceras de seguridad
+src/                  ← código fuente del frontend (app.js, app.css)
+public/               ← web estática generada (index.html, assets con hash, fuentes)
+api/data.js           ← proxy seguro hacia InkaCat y AnimetrixLat (las keys nunca llegan al navegador)
+api/ver.js            ← página del reproductor (/ver?t=movie&id=950387 o /ver?atx=<id>)
+lib/inkaflix.js       ← cliente de la API de InkaCat (catálogo principal)
+lib/animetrixlat.js   ← cliente de tu API de AnimetrixLat (catálogo en paralelo, por "group")
+lib/                  ← validación, plantilla HTML, interruptores
+vercel.json           ← rutas y cabeceras de seguridad
 ```
+
+## Catálogo de AnimetrixLat (en paralelo a InkaCat)
+
+Además del catálogo de InkaCat, el sitio puede sumar el de tu propia API
+([animetrixlat.vercel.app/docs](https://animetrixlat.vercel.app/docs)) como fuente adicional:
+no lo reemplaza, se agrega.
+
+- En la página de inicio aparece una fila más por cada **`group`** que tenga ítems en tu API
+  (hasta 8 grupos, 16 ítems cada una), después de Películas/Series/Anime.
+- Cada tarjeta abre `/ver?atx=<id>`, una página de reproductor propia que usa el `embed` de tu API,
+  con sinopsis, navegación anterior/siguiente y lista de episodios de la misma serie.
+- Si tu API exige clave (`x-api-key`), configúrala en `ATX_API_KEY`; la clave vive solo en el
+  servidor, igual que `INKAFLIX_KEY`.
+- Si tu API o ese grupo no responden, esa fila simplemente no aparece: nunca rompe el resto del sitio.
+- La página de prueba oculta `/prueba-api` (sin indexar, sin menú) sigue existiendo tal cual, útil
+  para depurar la respuesta cruda de tu API sin tocar el sitio público.
+
+Tras cambiar `ATX_API_BASE` a un dominio propio (en vez de `animetrixlat.vercel.app`), actualiza
+también ese origen en el `frame-src` de `lib/http.js` y `vercel.json` (igual que harías si InkaCat
+cambiara de dominio).
 
 ## Activar en Vercel (una sola vez)
 
@@ -37,6 +59,8 @@ Desde ahí, cada cambio que se suba a `main` se publica automáticamente.
 | `INKAFLIX_EMBED_PATH` | Ruta del reproductor (por defecto `/public/e/`) |
 | `PLAYER_SANDBOX` | Por defecto el reproductor va aislado (bloquea pop-ups y redirecciones de anuncios). `0` lo desactiva para todos |
 | `INKAFLIX_DEMO` | `1` muestra datos de ejemplo sin conectar a InkaCat |
+| `ATX_API_BASE` | Opcional. Base de tu API de AnimetrixLat (por defecto `https://animetrixlat.vercel.app`) |
+| `ATX_API_KEY` | Opcional. Clave `atx_…`, solo si tu API tiene activado "Exigir clave de API" |
 | `SITE_HOST` | Dominio del sitio (por defecto `animetrix.lat`) |
 
 ## Seguridad incluida

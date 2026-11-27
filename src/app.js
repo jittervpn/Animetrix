@@ -112,9 +112,9 @@
     if (ph) ph.style.setProperty('--h', ph.dataset.hue);
     return a;
   }
-  function row(title, items, more, extra) {
+  function row(title, items, more, extra, cardFn = card) {
     if (!items.length) return null;
-    const track = h('div', { class: 'row-track' }, items.map((it) => card(it, extra && extra(it))));
+    const track = h('div', { class: 'row-track' }, items.map((it) => cardFn(it, extra && extra(it))));
     const scroll = (d) => track.scrollBy({ left: d * track.clientWidth * 0.85, behavior: 'smooth' });
     return h('section', { class: 'row' },
       h('header', { class: 'row-head' }, h('h2', {}, title),
@@ -124,6 +124,24 @@
         track,
         h('button', { class: 'row-arrow r', type: 'button', 'aria-label': 'Siguiente', onclick: () => scroll(1) }, svg(ICON.right))));
   }
+
+  /* ---- Tarjetas para el catálogo de AnimetrixLat (fuente en paralelo a InkaCat) ---- */
+  function atxCard(it, extra) {
+    const src = typeof it.logo === 'string' && /^https:\/\//.test(it.logo) ? it.logo : null;
+    const hue = [...String(it.id || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 360, 0);
+    const ph = h('div', { class: 'poster poster-ph' }, h('span', {}, String(it.title || '?').trim().slice(0, 2).toUpperCase()));
+    ph.style.setProperty('--h', String(hue));
+    const a = h('a', { class: 'card', href: '/ver?atx=' + encodeURIComponent(it.id), 'aria-label': it.title },
+      h('div', { class: 'card-img' },
+        src ? h('img', { class: 'poster', src, alt: '', loading: 'lazy', decoding: 'async' }) : ph,
+        h('span', { class: 'card-play' }, svg(ICON.play)),
+        extra ? h('span', { class: 'card-badge' }, extra) : null),
+      h('div', { class: 'card-meta' },
+        h('strong', {}, it.title),
+        h('span', {}, [it.serie, it.lang].filter(Boolean).join(' · '))));
+    return a;
+  }
+  const atxExtra = (it) => (it.temporada != null && it.episodio != null ? 'T' + it.temporada + ' · E' + it.episodio : null);
   const skeletonRow = () => h('section', { class: 'row' }, h('header', { class: 'row-head' }, h('h2', { class: 'sk sk-t' }, ' ')),
     h('div', { class: 'row-track' }, Array.from({ length: 7 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' })))));
   const errorBox = (msg, retry) => h('div', { class: 'empty' }, h('h2', {}, 'Algo salió mal'), h('p', {}, msg),
@@ -137,19 +155,23 @@
     const root = app();
     if (!$('.sk-hero', root)) root.replaceChildren(h('div', { class: 'hero sk-hero' }), skeletonRow(), skeletonRow());
     else root.append(skeletonRow(), skeletonRow());
-    let d;
-    try { d = await api('home', {}); } catch (e) { if (view === 'home') root.replaceChildren(errorBox('No pudimos cargar el catálogo. Revisa tu conexión.', () => route())); return; }
+    const [homeRes, atxRes] = await Promise.allSettled([api('home', {}), api('atx-home', {})]);
     if (view !== 'home') return;
+    if (homeRes.status !== 'fulfilled') { root.replaceChildren(errorBox('No pudimos cargar el catálogo. Revisa tu conexión.', () => route())); return; }
+    const d = homeRes.value;
     const lists = d.lists || {};
     const all = [...(lists.movie || []), ...(lists.anime || []), ...(lists.serie || [])];
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
+    // Catálogo de la API propia de AnimetrixLat: una fila por "group", en paralelo a InkaCat.
+    const atxGroups = atxRes.status === 'fulfilled' ? (atxRes.value.groups || []) : [];
     root.replaceChildren(...[
       hero(feat), h('div', { class: 'greet', id: 'greet' }),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
       row('Anime', lists.anime || [], '#/anime'),
+      ...atxGroups.map((g) => row(g.group, g.items, null, atxExtra, atxCard)),
       row('Mejor valorados', [...all].filter((x) => x.rating >= 7).sort((a, b) => b.rating - a.rating).slice(0, 20)),
       row('Mi lista', favs.all(), '#/mi-lista'),
     ].filter(Boolean));

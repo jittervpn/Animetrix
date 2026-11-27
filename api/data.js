@@ -2,6 +2,7 @@
 //                /api/data?a=title&type=serie&tmdb=123
 // El navegador nunca ve la API key: esta función la añade del lado del servidor.
 import { asType, asInt, catalog, catalogAll, stats, home, title, ApiError } from '../lib/inkaflix.js';
+import { home as atxHome } from '../lib/animetrixlat.js';
 import { securityHeaders, rateLimited, sendJson, logSuspicious } from '../lib/http.js';
 
 export default async function handler(req, res) {
@@ -19,6 +20,10 @@ export default async function handler(req, res) {
   }
   if (one(q.a) === 'stats') {
     try { return sendJson(res, 200, await stats(), 120); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
+  }
+  // Catálogo de la API propia de AnimetrixLat (en paralelo a InkaCat), agrupado por "group".
+  if (one(q.a) === 'atx-home') {
+    try { return sendJson(res, 200, await atxHome(), 300); } catch { return sendJson(res, 502, { error: 'Servicio no disponible' }); }
   }
   const type = asType(one(q.type));
   if (!type) { logSuspicious(req, 'bad-type'); return sendJson(res, 400, { error: 'Tipo no válido' }); }
