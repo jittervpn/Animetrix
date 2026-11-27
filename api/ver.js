@@ -1,7 +1,7 @@
 // Página del reproductor: /ver?t=movie&id=950387
 //                        /ver?t=serie&id=230424&se=1&ep=10
 //                        /ver?atx=el-comienzo-a1b2c3   (fuente: AnimetrixLat, en paralelo a InkaCat)
-import { asType, asInt, title as getTitle, embedUrl, esc, config } from '../lib/inkaflix.js';
+import { asType, asInt, title as getTitle, playerFor, esc, config } from '../lib/inkaflix.js';
 import { item as atxItem, asId as atxAsId, ApiError as AtxApiError } from '../lib/animetrixlat.js';
 import { securityHeaders, rateLimited } from '../lib/http.js';
 import { typeEnabled } from '../lib/flags.js';
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
       <a class="cine-btn txt" href="/app-accion?a=cine-off">${type === 'movie' ? 'Detalles' : 'Episodios'}</a>
     </div>
     <button type="button" class="cine-handle" id="cineHandle" aria-label="Mostrar opciones"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <iframe id="player" src="${esc(embedUrl(type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
+    <iframe id="player" src="${esc(playerFor(info, type, tmdb, se, ep))}" title="Reproductor: ${esc(name)}"
       allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowfullscreen referrerpolicy="origin"${sandbox}></iframe>
   </div></div>
   <div class="ad-tip" id="adTip">

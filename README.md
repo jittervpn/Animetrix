@@ -18,23 +18,22 @@ vercel.json           ← rutas y cabeceras de seguridad
 
 ## Catálogo de AnimetrixLat (en paralelo a InkaCat)
 
-Además del catálogo de InkaCat, el sitio puede sumar el de tu propia API
-([animetrixlat.vercel.app/docs](https://animetrixlat.vercel.app/docs)) como fuente adicional:
-no lo reemplaza, se agrega.
+Además del catálogo de InkaCat, el sitio suma el de tu propia API
+([animetrixlat.vercel.app/docs](https://animetrixlat.vercel.app/docs)). No lo reemplaza, se agrega.
 
-- En la página de inicio aparece una fila más por cada **`group`** que tenga ítems en tu API
-  (hasta 8 grupos, 16 ítems cada una), después de Películas/Series/Anime.
-- Cada tarjeta abre `/ver?atx=<id>`, una página de reproductor propia que usa el `embed` de tu API,
-  con sinopsis, navegación anterior/siguiente y lista de episodios de la misma serie.
-- Si tu API exige clave (`x-api-key`), configúrala en `ATX_API_KEY`; la clave vive solo en el
-  servidor, igual que `INKAFLIX_KEY`.
-- Si tu API o ese grupo no responden, esa fila simplemente no aparece: nunca rompe el resto del sitio.
-- La página de prueba oculta `/prueba-api` (sin indexar, sin menú) sigue existiendo tal cual, útil
-  para depurar la respuesta cruda de tu API sin tocar el sitio público.
+- **Títulos con TMDB ID** (los que tienen TMDB en tu panel): entran igual que los de InkaCat, por
+  `/api/v1/catalog` y `/api/v1/title` de tu API. Usan la misma ficha (Mi lista, Compartir, temporadas),
+  el mismo reproductor `/ver?t=…&id=…` con modo cine y Seguir viendo, el aviso del bot de Telegram
+  (estreno y episodios nuevos) y las notificaciones de la app. Si un título está en las dos fuentes,
+  se muestra una sola vez: tus episodios se reproducen con tu reproductor y el resto con el de InkaCat.
+- **Contenido sin TMDB**: se agrupa por serie (o por título) y aparece en Películas/Series/Anime con
+  su ficha simple (`#/atx-titulo/…`) y reproductor `/ver?atx=<id>`.
+- Si tu API exige clave (`x-api-key`), configúrala en `ATX_API_KEY`; vive solo en el servidor.
+- Si tu API no responde, el sitio sigue funcionando solo con InkaCat.
+- `/prueba-api` (oculta) sigue sirviendo para depurar la respuesta cruda de tu API.
 
-Tras cambiar `ATX_API_BASE` a un dominio propio (en vez de `animetrixlat.vercel.app`), actualiza
-también ese origen en el `frame-src` de `lib/http.js` y `vercel.json` (igual que harías si InkaCat
-cambiara de dominio).
+Si cambias `ATX_API_BASE` a un dominio propio, actualiza también ese origen en el `frame-src` de
+`lib/http.js` y `vercel.json`.
 
 ## Activar en Vercel (una sola vez)
 
