@@ -91,30 +91,35 @@
 
 
   /* ---------- componentes ---------- */
+  // `it.atx` marca un ítem de la API de AnimetrixLat (en paralelo a InkaCat): se mezcla directamente
+  // en las filas y grillas de Películas/Series/Anime, con su propia ficha (#/atx-titulo/...) y reproductor (/ver?atx=...).
   function poster(it, cls = 'poster') {
-    const src = safeImg(it.poster);
+    const src = it.atx ? (typeof it.poster === 'string' && /^https:\/\//.test(it.poster) ? it.poster : null) : safeImg(it.poster);
     if (src) {
       return h('img', { class: cls, src: sized(src, 'w342'), srcset: sized(src, 'w185') + ' 185w, ' + sized(src, 'w342') + ' 342w',
         sizes: cls === 'poster' ? '(max-width: 640px) 40vw, 210px' : '170px', alt: '', loading: 'lazy', decoding: 'async', width: 342, height: 513 });
     }
     const initials = String(it.title || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-    return h('div', { class: cls + ' poster-ph', 'data-hue': String((it.tmdb * 47) % 360) }, h('span', {}, initials));
+    const hue = it.atx ? [...String(it.key || it.title || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 360, 0) : (it.tmdb * 47) % 360;
+    return h('div', { class: cls + ' poster-ph', 'data-hue': String(hue) }, h('span', {}, initials));
   }
   function card(it, extra) {
-    const a = h('a', { class: 'card', href: '#/titulo/' + it.type + '/' + it.tmdb, 'aria-label': it.title },
+    const href = it.atx ? '#/atx-titulo/' + it.type + '/' + encodeURIComponent(it.key) : '#/titulo/' + it.type + '/' + it.tmdb;
+    const meta = it.atx ? [it.lang, it.count > 1 ? it.count + ' episodios' : null] : [SINGULAR[it.type], it.year];
+    const a = h('a', { class: 'card', href, 'aria-label': it.title },
       h('div', { class: 'card-img' }, poster(it), h('span', { class: 'card-play' }, svg(ICON.play)),
         extra ? h('span', { class: 'card-badge' }, extra) : null,
         it.rating ? h('span', { class: 'card-rate ' + rateClass(it.rating), 'aria-label': 'Rating ' + it.rating }, '★ ' + fmtRate(it.rating)) : null),
       h('div', { class: 'card-meta' },
         h('strong', {}, it.title),
-        h('span', {}, [SINGULAR[it.type], it.year].filter(Boolean).join(' · '))));
+        h('span', {}, meta.filter(Boolean).join(' · '))));
     const ph = a.querySelector('.poster-ph');
     if (ph) ph.style.setProperty('--h', ph.dataset.hue);
     return a;
   }
-  function row(title, items, more, extra, cardFn = card) {
+  function row(title, items, more, extra) {
     if (!items.length) return null;
-    const track = h('div', { class: 'row-track' }, items.map((it) => cardFn(it, extra && extra(it))));
+    const track = h('div', { class: 'row-track' }, items.map((it) => card(it, extra && extra(it))));
     const scroll = (d) => track.scrollBy({ left: d * track.clientWidth * 0.85, behavior: 'smooth' });
     return h('section', { class: 'row' },
       h('header', { class: 'row-head' }, h('h2', {}, title),
@@ -124,24 +129,6 @@
         track,
         h('button', { class: 'row-arrow r', type: 'button', 'aria-label': 'Siguiente', onclick: () => scroll(1) }, svg(ICON.right))));
   }
-
-  /* ---- Tarjetas para el catálogo de AnimetrixLat (fuente en paralelo a InkaCat) ---- */
-  function atxCard(it, extra) {
-    const src = typeof it.logo === 'string' && /^https:\/\//.test(it.logo) ? it.logo : null;
-    const hue = [...String(it.id || '')].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 360, 0);
-    const ph = h('div', { class: 'poster poster-ph' }, h('span', {}, String(it.title || '?').trim().slice(0, 2).toUpperCase()));
-    ph.style.setProperty('--h', String(hue));
-    const a = h('a', { class: 'card', href: '/ver?atx=' + encodeURIComponent(it.id), 'aria-label': it.title },
-      h('div', { class: 'card-img' },
-        src ? h('img', { class: 'poster', src, alt: '', loading: 'lazy', decoding: 'async' }) : ph,
-        h('span', { class: 'card-play' }, svg(ICON.play)),
-        extra ? h('span', { class: 'card-badge' }, extra) : null),
-      h('div', { class: 'card-meta' },
-        h('strong', {}, it.title),
-        h('span', {}, [it.serie, it.lang].filter(Boolean).join(' · '))));
-    return a;
-  }
-  const atxExtra = (it) => (it.temporada != null && it.episodio != null ? 'T' + it.temporada + ' · E' + it.episodio : null);
   const skeletonRow = () => h('section', { class: 'row' }, h('header', { class: 'row-head' }, h('h2', { class: 'sk sk-t' }, ' ')),
     h('div', { class: 'row-track' }, Array.from({ length: 7 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' })))));
   const errorBox = (msg, retry) => h('div', { class: 'empty' }, h('h2', {}, 'Algo salió mal'), h('p', {}, msg),
@@ -155,23 +142,24 @@
     const root = app();
     if (!$('.sk-hero', root)) root.replaceChildren(h('div', { class: 'hero sk-hero' }), skeletonRow(), skeletonRow());
     else root.append(skeletonRow(), skeletonRow());
-    const [homeRes, atxRes] = await Promise.allSettled([api('home', {}), api('atx-home', {})]);
+    const [homeRes, atxRes] = await Promise.allSettled([api('home', {}), api('atx-catalog', {})]);
     if (view !== 'home') return;
     if (homeRes.status !== 'fulfilled') { root.replaceChildren(errorBox('No pudimos cargar el catálogo. Revisa tu conexión.', () => route())); return; }
     const d = homeRes.value;
-    const lists = d.lists || {};
+    // Catálogo de tu API de AnimetrixLat: se mezcla directamente en Películas/Series/Anime (por tipo),
+    // en vez de aparecer como filas sueltas.
+    const atxLists = atxRes.status === 'fulfilled' ? (atxRes.value.lists || {}) : {};
+    const lists = {};
+    for (const t of Object.keys(TYPES)) lists[t] = [...(d.lists?.[t] || []), ...(atxLists[t] || [])];
     const all = [...(lists.movie || []), ...(lists.anime || []), ...(lists.serie || [])];
     if (!all.length) { root.replaceChildren(h('div', { class: 'empty' }, h('h2', {}, 'Catálogo vacío'), h('p', {}, 'Todavía no hay títulos disponibles.'))); return; }
     const feat = d.featured || all[0];
-    // Catálogo de la API propia de AnimetrixLat: una fila por "group", en paralelo a InkaCat.
-    const atxGroups = atxRes.status === 'fulfilled' ? (atxRes.value.groups || []) : [];
     root.replaceChildren(...[
       hero(feat), h('div', { class: 'greet', id: 'greet' }),
       row('Seguir viendo', seen.all(), null, (it) => (it.type !== 'movie' && it.ep ? 'T' + it.se + ' · E' + it.ep : null)),
       row('Películas', lists.movie || [], '#/peliculas'),
       row('Series', lists.serie || [], '#/series'),
       row('Anime', lists.anime || [], '#/anime'),
-      ...atxGroups.map((g) => row(g.group, g.items, null, atxExtra, atxCard)),
       row('Mejor valorados', [...all].filter((x) => x.rating >= 7).sort((a, b) => b.rating - a.rating).slice(0, 20)),
       row('Mi lista', favs.all(), '#/mi-lista'),
     ].filter(Boolean));
@@ -217,8 +205,12 @@
     root.replaceChildren(h('section', { class: 'page' }, h('h1', { class: 'page-title' }, TYPES[type]), count, tabs, bar, grid, more));
 
     let data;
-    try { data = await api('all', { type }); } catch (e) { grid.replaceChildren(errorBox(e.message, () => viewGrid(type))); return; }
+    const [mainRes, atxRes] = await Promise.allSettled([api('all', { type }), api('atx-catalog', {})]);
     if (view !== 'grid:' + type) return;
+    if (mainRes.status !== 'fulfilled') { grid.replaceChildren(errorBox(mainRes.reason?.message || 'Error', () => viewGrid(type))); return; }
+    // Suma el catálogo de tu API de AnimetrixLat (ya agrupado por serie) a la grilla de este tipo.
+    const atxItems = atxRes.status === 'fulfilled' ? (atxRes.value.lists?.[type] || []) : [];
+    data = { ...mainRes.value, items: [...(mainRes.value.items || []), ...atxItems] };
     const items = data.items || [];
     if (!items.length) { count.textContent = ''; bar.remove(); grid.replaceWith(h('div', { class: 'empty' }, h('p', {}, 'Aún no hay ' + TYPES[type].toLowerCase() + ' en el catálogo.'))); return; }
 
@@ -286,10 +278,14 @@
     const title = () => h('h1', { class: 'page-title' }, 'Resultados para “', q, '”');
     root.replaceChildren(h('section', { class: 'page' }, title(), h('div', { class: 'grid' },
       Array.from({ length: 8 }, () => h('div', { class: 'card sk-card' }, h('div', { class: 'card-img sk' }))))));
-    const res = await Promise.allSettled(Object.keys(TYPES).map((t) => api('all', { type: t })));
+    const [res, atxRes] = await Promise.allSettled([
+      Promise.allSettled(Object.keys(TYPES).map((t) => api('all', { type: t }))),
+      api('atx-catalog', {}),
+    ]);
     if (view !== 'search:' + q) return;
     const fq = fold(q);
-    const items = res.flatMap((r) => (r.status === 'fulfilled' ? r.value.items || [] : []))
+    const atxItems = atxRes.status === 'fulfilled' ? Object.values(atxRes.value.lists || {}).flat() : [];
+    const items = [...(res.status === 'fulfilled' ? res.value.flatMap((r) => (r.status === 'fulfilled' ? r.value.items || [] : [])) : []), ...atxItems]
       .filter((it) => fold(it.title).includes(fq) || (it.genres || []).some((g) => fold(g) === fq) || String(it.year) === q.trim());
     const sec = h('section', { class: 'page' }, title(),
       h('p', { class: 'page-count' }, h('strong', {}, String(items.length)), items.length === 1 ? ' resultado' : ' resultados'));
@@ -441,6 +437,50 @@
       $$('[data-season-list]', wrap).forEach((l) => { l.hidden = l.dataset.seasonList !== b.dataset.season; });
     });
   }
+
+  /* ---- Ficha de una serie/ítem de AnimetrixLat: misma modal, lista de episodios como InkaCat ---- */
+  async function openAtxTitle(type, key) {
+    const modal = $('#modal'); if (!modal) return;
+    const cardEl = $('.modal-card', modal);
+    lastFocus = document.activeElement;
+    cardEl.replaceChildren(h('div', { class: 'modal-loading' }, h('span', { class: 'spinner' })));
+    modal.hidden = false; document.body.classList.add('no-scroll'); cardEl.focus();
+    let d;
+    try { d = await api('atx-serie', { type, key }); } catch (e) {
+      cardEl.replaceChildren(closeBtn(), errorBox(e.message, () => openAtxTitle(type, key))); return;
+    }
+    if (modal.hidden) return;
+    const firstEp = d.episodes[0];
+    const multi = d.episodes.length > 1;
+    const playHref = '/ver?atx=' + encodeURIComponent(firstEp.id);
+    const cover = h('div', { class: 'm-cover' });
+    const bimg = typeof d.poster === 'string' && /^https:\/\//.test(d.poster) ? d.poster : null;
+    if (bimg) cover.style.backgroundImage = 'url("' + bimg + '")';
+    cardEl.replaceChildren(...[closeBtn(), cover,
+      h('div', { class: 'm-body' },
+        h('div', { class: 'm-poster' }, poster({ atx: true, key: d.key, title: d.title, poster: d.poster })),
+        h('div', { class: 'm-info' },
+          h('p', { class: 'eyebrow' }, [SINGULAR[d.type], d.lang, multi ? d.episodes.length + ' episodios' : null].filter(Boolean).join(' · ')),
+          h('h2', { id: 'mTitle' }, d.title),
+          d.description ? h('p', { class: 'overview' }, d.description) : null,
+          h('div', { class: 'actions' }, h('a', { class: 'btn primary lg', href: playHref }, svg(ICON.play), multi ? 'Ver episodio 1' : 'Ver ahora')))),
+      multi ? atxEpisodesBlock(d) : null].filter(Boolean));
+    const ph = cardEl.querySelector('.poster-ph'); if (ph) ph.style.setProperty('--h', ph.dataset.hue);
+    document.title = d.title + ' · Animetrix';
+  }
+  function atxEpisodesBlock(d) {
+    const epLink = (e) => h('li', {}, h('a', { href: '/ver?atx=' + encodeURIComponent(e.id) },
+      h('span', { class: 'ep-n' }, e.episodio ?? ''), h('span', { class: 'ep-t' }, e.title || 'Episodio ' + (e.episodio ?? ''))));
+    const seasons = [...new Set(d.episodes.map((e) => e.temporada ?? 1))].sort((a, b) => a - b);
+    if (seasons.length <= 1) return h('div', { class: 'episodes' }, h('ol', { class: 'ep-list' }, d.episodes.map(epLink)));
+    const lists = seasons.map((s) => h('ol', { class: 'ep-list', 'data-season-list': s, hidden: s !== seasons[0] },
+      d.episodes.filter((e) => (e.temporada ?? 1) === s).map(epLink)));
+    const tabs = h('div', { class: 'season-tabs', role: 'tablist' }, seasons.map((s) =>
+      h('button', { type: 'button', role: 'tab', 'data-season': s, 'aria-selected': String(s === seasons[0]) }, 'Temporada ' + s)));
+    const wrap = h('div', { class: 'episodes' }, tabs, lists);
+    bindSeasonTabs(wrap);
+    return wrap;
+  }
   const closeBtn = () => h('button', { class: 'm-close', type: 'button', 'aria-label': 'Cerrar', 'data-close': true }, svg(ICON.close));
   function closeModal() {
     const modal = $('#modal'); if (!modal || modal.hidden) return;
@@ -458,6 +498,11 @@
     if (parts[0] === 'titulo' && TYPES[parts[1]] && /^\d{1,9}$/.test(parts[2] || '')) {
       if (!baseRoute) { baseRoute = '/'; await render('/'); }
       openTitle(parts[1], parts[2]);
+      return;
+    }
+    if (parts[0] === 'atx-titulo' && TYPES[parts[1]] && parts[2]) {
+      if (!baseRoute) { baseRoute = '/'; await render('/'); }
+      openAtxTitle(parts[1], parts.slice(2).join('/'));
       return;
     }
     closeModal();
