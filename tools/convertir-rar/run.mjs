@@ -336,12 +336,65 @@ async function upload(file, inner) {
   throw new Fail('MediaFire tardó demasiado en procesar el archivo. Probá de nuevo en un rato.');
 }
 
+/* ------------------------------------------------ subida a tu canal de Telegram */
+// El Bot API deja bajar archivos de hasta 20 MB: el video se corta en partes de 19 MB y se sube un índice (.json).
+// Tu Cloudflare Worker las junta y las sirve como un solo .mp4 (con adelantar/atrasar).
+const PIECE = Number(process.env.TG_PIECE) || 19 * 1024 * 1024;
+
+async function tgSend(tg, blob, filename, what) {
+  for (let t = 1; ; t++) {
+    const form = new FormData();
+    form.append('chat_id', String(tg.chat));
+    form.append('disable_notification', 'true');
+    form.append('document', blob, filename);
+    let j = {};
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${tg.token}/sendDocument`, { method: 'POST', body: form, signal: AbortSignal.timeout(180000) });
+      j = await r.json().catch(() => ({}));
+      if (j.ok && j.result?.document?.file_id) return j.result.document.file_id;
+      if (r.status === 429) {   // Telegram limita los mensajes por minuto en un canal: se espera lo que pide
+        const wait = Number(j.parameters?.retry_after || 10);
+        await progress(`⏳ Telegram pide esperar ${wait} s…`);
+        await sleep((wait + 1) * 1000);
+        t--; continue;
+      }
+      if (r.status === 400 || r.status === 403) throw new Fail(`Telegram no dejó subir ${what}: ${j.description || r.status}. ¿El bot sigue siendo administrador del canal?`);
+      throw new Error(j.description || `Telegram respondió ${r.status}`);
+    } catch (e) {
+      if (e instanceof Fail || t >= 6) throw e instanceof Fail ? e : new Fail(`No se pudo subir ${what} a Telegram: ${e.message}`);
+      await sleep(4000 * t);
+    }
+  }
+}
+
+async function uploadTelegram(file, inner, tg) {
+  mask(tg.token);
+  const size = fs.statSync(file).size;
+  const filename = safeName(path.basename(file));
+  const base = filename.replace(/\.[^.]+$/, '');
+  const n = Math.ceil(size / PIECE);
+  const fh = await fsp.open(file, 'r');
+  const parts = [];
+  try {
+    for (let i = 0; i < n; i++) {
+      const len = Math.min(PIECE, size - i * PIECE);
+      const chunk = Buffer.alloc(len);
+      await fh.read(chunk, 0, len, i * PIECE);
+      parts.push(await tgSend(tg, new Blob([chunk], { type: 'application/octet-stream' }), `${base}.${String(i + 1).padStart(3, '0')}.bin`, `la parte ${i + 1}/${n}`));
+      progress(`⬆️ Subiendo ${gb(size)} a tu canal de Telegram… ${pctOf(i + 1, n)}% (${i + 1}/${n})`);
+    }
+  } finally { await fh.close(); }
+  const manifest = { v: 1, name: filename, size, piece: PIECE, mime: 'video/mp4', parts };
+  const mfid = await tgSend(tg, new Blob([JSON.stringify(manifest)], { type: 'application/json' }), `${base}.json`, 'el índice');
+  await bot('tgdone', { manifest: mfid, filename, size, inner });
+}
+
 /* ------------------------------------------------ todo junto */
 async function main() {
   if (!/^[a-z0-9]{8,40}$/.test(JOB)) throw new Fail('Trabajo inválido.');
   if (!/^https:\/\/[^/\s]+$/.test(API)) throw new Fail('Dirección de la API inválida.');
   const job = await bot('job');
-  mask(job.password); mask(job.link);
+  mask(job.password); mask(job.link); if (job.tg) mask(job.tg.token);
   await fsp.mkdir(WORK, { recursive: true });
   const rar = path.join(WORK, 'archivo.bin');
   const out = path.join(WORK, 'salida');
@@ -365,7 +418,8 @@ async function main() {
   const conv = await toMp4(video.f, mp4);
   console.log(`Conversión: ${conv.note}`);
   if (conv.file !== video.f) fs.rmSync(video.f, { force: true });
-  await upload(conv.file, video.name);
+  if (job.tg) await uploadTelegram(conv.file, video.name, job.tg);
+  else await upload(conv.file, video.name);
   console.log('Listo.');
 }
 
