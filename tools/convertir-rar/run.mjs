@@ -105,7 +105,7 @@ async function download(link, page, dest) {
     } catch (e) { lastErr = e.message; await sleep(4000 * attempt); continue; }
     const html = /text\/html/i.test(r.headers.get('content-type') || '');
     if (!r.ok || html) {
-      lastErr = html ? 'el link ya no descarga (venció)' : `MediaFire respondió ${r.status}`;
+      lastErr = html ? 'el link abre una página, no el archivo (venció o no es directo)' : `respondió ${r.status}`;
       try { await r.body?.cancel(); } catch { /* nada */ }
       if (!triedPage && page) {
         triedPage = true;
@@ -134,22 +134,25 @@ async function download(link, page, dest) {
     if (!total && !lastErr) return { size: have, name: '' };
     await sleep(3000 * attempt);
   }
-  throw new Fail(`MediaFire no dejó descargar el archivo (${lastErr || 'error'}). Abrí el link en MediaFire, tocá Descargar y mandale al bot el link nuevo.`);
+  const mf = /mediafire\.com/i.test(link);
+  throw new Fail(`${mf ? 'MediaFire' : 'El sitio'} no dejó descargar el archivo (${lastErr || 'error'}). ${mf ? 'Abrí el link en MediaFire, tocá Descargar' : 'Abrí la página de descarga, copiá el link de descarga nuevo'} y mandáselo al bot.`);
 }
 
 /* ------------------------------------------------ programas */
 function run(cmd, args, { onLine } = {}) {
   return new Promise((resolve) => {
     let tail = '';
+    const stdout = [];
     const p = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     const take = (d) => {
       const s = d.toString();
       tail = (tail + s).slice(-6000);
       if (onLine) for (const l of s.split(/[\r\n]+/)) if (l) onLine(l);
     };
-    p.stdout.on('data', take); p.stderr.on('data', take);
-    p.on('error', (e) => resolve({ code: -1, out: e.message }));
-    p.on('close', (code) => resolve({ code, out: tail }));
+    p.stdout.on('data', (d) => { stdout.push(d); take(d); });
+    p.stderr.on('data', take);
+    p.on('error', (e) => resolve({ code: -1, out: e.message, stdout: '' }));
+    p.on('close', (code) => resolve({ code, out: tail, stdout: Buffer.concat(stdout).toString() }));
   });
 }
 async function has(cmd) { return (await run('sh', ['-c', `command -v ${cmd}`])).code === 0; }
@@ -227,23 +230,27 @@ async function toMp4(input, output) {
   if (!(await has('ffmpeg')) || !(await has('ffprobe'))) return { file: input, note: 'sin ffmpeg' };
   const pr = await run('ffprobe', ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', input]);
   let info;
-  try { info = JSON.parse(pr.out.slice(pr.out.indexOf('{'))); } catch { return { file: input, note: 'ffprobe falló' }; }
+  try { info = JSON.parse(pr.stdout); } catch { console.log('ffprobe:\n' + pr.out); return { file: input, note: 'ffprobe falló' }; }
   const streams = info.streams || [];
   const v = streams.find((s) => s.codec_type === 'video' && !s.disposition?.attached_pic);
   if (!v) return { file: input, note: 'sin pista de video' };
   const a = pickAudio(streams);
   const duration = Number(info.format?.duration) || 0;
-  // H.264 de 8 bits y HEVC se copian tal cual (rápido); H.264 de 10 bits y otros formatos se recodifican.
-  const tenBit = /10/.test(v.pix_fmt || '');
-  const copyV = (v.codec_name === 'h264' && !tenBit) || v.codec_name === 'hevc';
+  // Solo H.264 de 8 bits se copia tal cual (rápido). HEVC/H.265, H.264 de 10 bits y otros formatos
+  // se pasan a H.264, que se reproduce en todos lados (APK, WebView, navegadores).
+  const tenBit = /10|12/.test(v.pix_fmt || '');
+  const copyV = v.codec_name === 'h264' && !tenBit;
+  const tall = Number(v.height) > 1080;
   const copyA = a && a.codec_name === 'aac';
   const args = ['-hide_banner', '-nostdin', '-y', '-i', input, '-map', `0:${v.index}`];
   if (a) args.push('-map', `0:${a.index}`);
-  args.push(...(copyV ? ['-c:v', 'copy'] : ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p']));
-  if (v.codec_name === 'hevc' && copyV) args.push('-tag:v', 'hvc1');
+  args.push(...(copyV ? ['-c:v', 'copy'] : [
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1',
+    ...(tall ? ['-vf', 'scale=-2:1080'] : []),
+  ]));
   if (a) args.push(...(copyA ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '192k', '-ac', '2']));
   args.push('-sn', '-dn', '-map_chapters', '-1', '-movflags', '+faststart', '-progress', 'pipe:1', '-nostats', output);
-  const label = copyV ? '🎞 Pasando a .mp4' : '🎞 Recodificando el video (formato no compatible con el navegador)';
+  const label = copyV ? '🎞 Pasando a .mp4' : `🎞 Convirtiendo ${v.codec_name === 'hevc' ? 'H.265' : (v.codec_name || 'el video')} a H.264 para que se vea en todos lados`;
   await progress(`${label}…`, true);
   const r = await run('ffmpeg', args, {
     onLine: (l) => {
