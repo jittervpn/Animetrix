@@ -1,0 +1,72 @@
+name: Convertir .rar grande (bot de Telegram)
+run-name: Convertir ${{ inputs.job }}
+
+# Lo lanza el bot de AnimetrixLat (/api/bot) cuando el .rar pesa más de lo que aguanta Vercel.
+# No usa secretos del repo: el bot reconoce este flujo por su token OIDC de GitHub y le da
+# solo un token de subida de MediaFire (tus credenciales quedan en Vercel).
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'ID del trabajo (lo pone el bot)'
+        required: true
+      api:
+        description: 'Dirección de AnimetrixLat (https://…)'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: convertir-${{ inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  convertir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: tools/convertir-rar
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Herramientas (unrar, 7z, ffmpeg)
+        run: |
+          need=""
+          command -v unrar >/dev/null || need="$need unrar"
+          command -v ffmpeg >/dev/null || need="$need ffmpeg"
+          (command -v 7z || command -v 7zz) >/dev/null || need="$need 7zip"
+          if [ -n "$need" ]; then
+            sudo apt-get update -qq || true
+            for p in $need; do sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$p" || echo "No se pudo instalar $p"; done
+          fi
+          # Respaldo: 7-Zip oficial (sí abre RAR/RAR5), por si unrar no se pudo instalar.
+          if ! command -v unrar >/dev/null; then
+            curl -fsSL https://www.7-zip.org/a/7z2409-linux-x64.tar.xz -o /tmp/7z.tar.xz \
+              && sudo tar -xJf /tmp/7z.tar.xz -C /usr/local/bin 7zz || echo "No se pudo bajar 7-Zip"
+          fi
+          command -v unrar 7z 7zz ffmpeg || true
+
+      - name: Carpeta de trabajo con espacio
+        run: |
+          if sudo mkdir -p /mnt/work 2>/dev/null && sudo chown "$(id -u):$(id -g)" /mnt/work; then dir=/mnt/work; else dir="$RUNNER_TEMP/work"; mkdir -p "$dir"; fi
+          echo "WORK=$dir" >> "$GITHUB_ENV"
+          df -h "$dir" .
+
+      - name: Convertir y subir
+        env:
+          JOB: ${{ inputs.job }}
+          API: ${{ inputs.api }}
+        run: node tools/convertir-rar/run.mjs
+
+      - name: Avisar si se cortó
+        if: cancelled()
+        env:
+          JOB: ${{ inputs.job }}
+          API: ${{ inputs.api }}
+        run: node tools/convertir-rar/run.mjs --cancelado
